@@ -47,10 +47,10 @@
               </div>
               <form id="room-form">
                 <label for="player-name">Nama pemain</label>
-                <input id="player-name" name="playerName" maxlength="20" placeholder="Contoh: Rizki" autocomplete="nickname" required />
+                <input id="player-name" name="playerName" maxlength="20" placeholder="Contoh: Rizki" autocomplete="nickname" enterkeyhint="next" required />
                 <div id="join-code-wrap" class="field-hidden">
                   <label for="room-code">Kode room</label>
-                  <input id="room-code" name="roomCode" maxlength="6" placeholder="ABC123" autocomplete="off" autocapitalize="characters" />
+                  <input id="room-code" name="roomCode" maxlength="6" placeholder="ABC123" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" />
                 </div>
                 <button class="button button-primary button-wide" id="room-submit" type="submit">Buat room baru <span>→</span></button>
               </form>

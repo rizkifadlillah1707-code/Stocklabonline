@@ -449,14 +449,20 @@ function renderBidding() {
     ? `<div class="status-item"><strong>Tawaran terkunci</strong><span>Menunggu moderator membuka semua tawaran.</span></div>`
     : !privatePlayer
       ? '<div class="status-item"><strong>Menyiapkan saldo privat…</strong><span>Form tawaran akan aktif sebentar lagi.</span></div>'
-    : `<form id="bid-form" class="bid-form"><label for="bid-amount">Tawaran rahasia · saldo ${coins} koin</label><input id="bid-amount" class="num" type="number" min="${minimumBid}" max="${coins}" value="${minimumBid}" required /><button class="button button-primary">Kunci tawaran</button></form>
+    : `<form id="bid-form" class="bid-form"><label for="bid-amount">Tawaran rahasia · saldo ${coins} koin</label><p class="field-hint" id="bid-hint">Isi bilangan bulat ${minimumBid}–${coins} koin.</p><input id="bid-amount" class="num" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="send" autocomplete="off" aria-describedby="bid-hint bid-error" value="${minimumBid}" required /><button class="button button-primary">Kunci tawaran</button><p class="error-text field-error" id="bid-error" role="alert" hidden></p></form>
        ${game.utangRemaining > 0 ? '<button class="button button-secondary" id="btn-loan" type="button">Pinjam 10 koin dari Bank</button>' : ''}`;
   const hostAction = isHost ? `<div class="status-item"><strong>${submitted}/${game.players.length} masuk</strong><span>${submitted === game.players.length ? 'Semua siap dibuka' : 'Tunggu semua tawaran'}</span></div><button class="button button-primary button-wide" id="btn-reveal-bids" type="button" ${submitted !== game.players.length || !fullGame ? 'disabled' : ''}>Buka tawaran & mulai fase aksi →</button>` : '';
   elements.phasePanel.innerHTML = `<h2>Fase Bidding · Ronde ${game.round}</h2><p class="phase-copy">Masukkan tawaran dari perangkat Anda. Nilai tawaran tidak terlihat oleh peserta lain; saldo dibayar ke Bank saat hasil dibuka.</p>${renderPoolPreview()}${bidForm}<div class="status-list num"><div class="status-item"><span>${escapeHtml(progress)}</span><strong>${game.utangRemaining} kartu utang</strong></div></div>${hostAction}`;
   $('#bid-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const amount = Number($('#bid-amount').value);
-    if (!Number.isInteger(amount) || amount < minimumBid || amount > coins) return toast(`Tawaran harus bilangan bulat dari ${minimumBid} sampai saldo Anda.`, true);
+    const bidError = $('#bid-error');
+    if (!Number.isInteger(amount) || amount < minimumBid || amount > coins) {
+      bidError.textContent = `Tawaran harus bilangan bulat dari ${minimumBid} sampai saldo Anda (${coins}).`;
+      bidError.hidden = false;
+      return;
+    }
+    bidError.hidden = true;
     try {
       await submitBid(db, roomCode, user.uid, game.round, amount);
       ownBid = { round: game.round, bid: amount };
@@ -475,7 +481,7 @@ function actionEffectForm(card) {
     return `<p class="phase-copy">Gerakkan harga sampai dua kali, satu poin setiap kali. Pergerakan kedua opsional.</p><div class="phase-controls"><select id="effect-sector-1" aria-label="Sektor pergerakan pertama">${sectors}</select><select id="effect-direction-1" aria-label="Arah pergerakan pertama"><option value="up">Naik 1</option><option value="down">Turun 1</option></select></div><div class="phase-controls"><select id="effect-sector-2" aria-label="Sektor pergerakan kedua"><option value="">Tidak ada pergerakan kedua</option>${sectors}</select><select id="effect-direction-2" aria-label="Arah pergerakan kedua"><option value="up">Naik 1</option><option value="down">Turun 1</option></select></div>`;
   }
   if (card.effect === 'quickbuy') return `<p class="phase-copy">Pilih sampai 2 kartu tambahan untuk langsung disimpan. Jika tidak memilih, Quickbuy hanya mengakhiri giliran.</p><div class="phase-controls"><select id="effect-quickbuy" multiple size="4" aria-label="Pilih kartu Quickbuy">${game.pool.filter((item) => item.id !== card.id).map((item) => `<option value="${item.id}">${escapeHtml(SECTOR_NAMES[item.theme])}</option>`).join('')}</select></div>`;
-  if (card.effect === 'fee') return `<p class="phase-copy">Biaya: ${1 + (playerByUid(game, user.uid).holdings[card.theme] || 0)} koin. Setelah membayar, Anda dapat menjual satu jenis saham.</p><div class="phase-controls"><select id="effect-sector">${Object.keys(playerByUid(game, user.uid).holdings).filter((id) => playerByUid(game, user.uid).holdings[id] > 0).map((id) => `<option value="${id}">${escapeHtml(SECTOR_NAMES[id])} · ${playerByUid(game, user.uid).holdings[id]} lembar</option>`).join('')}</select><input id="effect-quantity" type="number" min="0" placeholder="Jumlah jual" aria-label="Jumlah saham untuk dijual" /></div>`;
+  if (card.effect === 'fee') return `<p class="phase-copy">Biaya: ${1 + (playerByUid(game, user.uid).holdings[card.theme] || 0)} koin. Setelah membayar, Anda dapat menjual satu jenis saham.</p><div class="phase-controls"><select id="effect-sector">${Object.keys(playerByUid(game, user.uid).holdings).filter((id) => playerByUid(game, user.uid).holdings[id] > 0).map((id) => `<option value="${id}">${escapeHtml(SECTOR_NAMES[id])} · ${playerByUid(game, user.uid).holdings[id]} lembar</option>`).join('')}</select><input id="effect-quantity" type="number" inputmode="numeric" min="0" placeholder="Jumlah jual" aria-label="Jumlah saham untuk dijual" /></div>`;
   const player = playerByUid(game, user.uid);
   const eligible = game.players.filter((target) => target.uid !== user.uid && SECTORS_FOR_GAME.some((id) => target.holdings[id] > 0 && player.holdings[id] >= target.holdings[id]));
   const choices = eligible.flatMap((target) => SECTORS_FOR_GAME.filter((id) => target.holdings[id] > 0 && player.holdings[id] >= target.holdings[id]).map((id) => `<option value="${target.uid}|${id}">${escapeHtml(target.name)} · ${escapeHtml(SECTOR_NAMES[id])}</option>`)).join('');
@@ -520,7 +526,7 @@ function renderSale() {
   const isMyTurn = player?.uid === user.uid;
   const owned = Object.keys(player?.holdings || {}).filter((id) => player.holdings[id] > 0);
   const controls = isMyTurn ? (owned.length
-    ? `<form id="sale-form" class="phase-controls"><select id="sale-sector" aria-label="Pilih saham untuk dijual">${owned.map((id) => `<option value="${id}">${escapeHtml(SECTOR_NAMES[id])} · ${player.holdings[id]} × ${sectorPrice(game, id)} koin</option>`).join('')}</select><input id="sale-quantity" class="num" type="number" min="0" max="${player.holdings[owned[0]]}" value="${player.holdings[owned[0]]}" aria-label="Jumlah saham" /><button class="button button-primary">Jual saham</button><button class="button button-secondary" id="btn-skip-sale" type="button">Lewati</button></form>`
+    ? `<form id="sale-form" class="phase-controls"><select id="sale-sector" aria-label="Pilih saham untuk dijual">${owned.map((id) => `<option value="${id}">${escapeHtml(SECTOR_NAMES[id])} · ${player.holdings[id]} × ${sectorPrice(game, id)} koin</option>`).join('')}</select><input id="sale-quantity" class="num" type="number" inputmode="numeric" enterkeyhint="send" min="0" max="${player.holdings[owned[0]]}" value="${player.holdings[owned[0]]}" aria-label="Jumlah saham" /><button class="button button-primary">Jual saham</button><button class="button button-secondary" id="btn-skip-sale" type="button">Lewati</button></form>`
     : '<p class="phase-copy">Anda tidak memiliki saham untuk dijual.</p><button class="button button-secondary" id="btn-skip-sale" type="button">Lanjutkan</button>')
     : `<p class="phase-copy">Menunggu ${escapeHtml(player?.name || 'pemain')} menyelesaikan giliran jual.</p>`;
   elements.phasePanel.innerHTML = `<h2>Fase Jual · Ronde ${game.round}</h2><p class="phase-copy">${isMyTurn ? 'Jual satu jenis saham dalam jumlah yang diinginkan, atau lewati.' : `Pemain saat ini: ${escapeHtml(player?.name || '')}.`}</p>${controls}`;
@@ -636,6 +642,30 @@ $('#theme-toggle').addEventListener('click', () => {
   const current = document.documentElement.dataset.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   applyTheme(current === 'dark' ? 'light' : 'dark');
 });
+
+elements.code.addEventListener('input', () => {
+  const upper = elements.code.value.toUpperCase();
+  if (upper === elements.code.value) return;
+  const caret = elements.code.selectionStart;
+  elements.code.value = upper;
+  elements.code.setSelectionRange(caret, caret);
+});
+
+// Keyboard virtual: tampilkan kolom dan tombol kirim di atas keyboard (hanya layar sentuh).
+let focusedField = null;
+function revealFocusedField() {
+  if (!focusedField?.isConnected) return;
+  (focusedField.closest('form') || focusedField).scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+if (window.matchMedia('(pointer: coarse)').matches) {
+  document.addEventListener('focusin', (event) => {
+    if (!event.target.matches('input, select')) return;
+    focusedField = event.target;
+    window.setTimeout(revealFocusedField, 300);
+  });
+  document.addEventListener('focusout', () => { focusedField = null; });
+  window.visualViewport?.addEventListener('resize', revealFocusedField);
+}
 
 elements.createTab.addEventListener('click', () => setMode('create'));
 elements.joinTab.addEventListener('click', () => setMode('join'));

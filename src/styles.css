@@ -235,3 +235,7 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
   .topbar { height: 52px; }
   .screen { padding: 20px 0 28px; }
 }
+
+/* Petunjuk dan pesan error kolom tawaran (tahap 7c) */
+.field-hint { flex-basis: 100%; margin: -4px 0 0; color: var(--muted); font-size: var(--text-xs); }
+.bid-form .field-error { flex-basis: 100%; margin: 0; }
