@@ -78,6 +78,10 @@ let commandQueue = Promise.resolve();
 let pendingCommands = [];
 let commandRosterKey = '';
 let bidRosterKey = '';
+let lastPrices = {};
+let priceDelta = {};
+let hasConnected = false;
+const numberFormat = new Intl.NumberFormat('id-ID');
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -136,6 +140,8 @@ function openRoom(code) {
   roomData = null;
   selectedCardId = '';
   turnKey = '';
+  lastPrices = {};
+  priceDelta = {};
   unsubscribePresence = trackPresence(db, code, user.uid, (error) => toast(`Status koneksi room gagal: ${error.message}`, true));
   unsubscribeRoom = subscribeRoom(db, code, (data) => {
     if (!data) {
@@ -364,8 +370,20 @@ function phaseCopy(phase) {
 
 function renderMarket() {
   const items = [...game.sectors.map((sector) => ({ id: sector.id, name: sector.name, price: sector.price })), { id: 'reksadana', name: 'Reksa Dana', price: sectorPrice(game, 'reksadana') }];
-  elements.market.innerHTML = items.map((sector) => `
-    <div class="market-tile"><div class="market-name">${escapeHtml(sector.name)}</div><div class="market-price num">${sector.price}</div></div>`).join('');
+  // Engine tidak menyimpan riwayat harga: arah dihitung dari harga terakhir yang dilihat perangkat ini.
+  for (const sector of items) {
+    if (sector.id in lastPrices && lastPrices[sector.id] !== sector.price) priceDelta[sector.id] = sector.price - lastPrices[sector.id];
+    lastPrices[sector.id] = sector.price;
+  }
+  elements.market.innerHTML = items.map((sector) => {
+    const delta = priceDelta[sector.id] || 0;
+    const trend = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+    const mark = delta > 0 ? '▲' : delta < 0 ? '▼' : '–';
+    const amount = delta > 0 ? `+${numberFormat.format(delta)}` : delta < 0 ? `−${numberFormat.format(-delta)}` : '0';
+    const label = delta > 0 ? `naik ${numberFormat.format(delta)}` : delta < 0 ? `turun ${numberFormat.format(-delta)}` : 'tidak berubah';
+    return `
+    <div class="market-tile"><div class="market-name">${escapeHtml(sector.name)}</div><div class="market-price num ${trend}">${numberFormat.format(sector.price)}</div><div class="market-delta num ${trend}" aria-label="${label}"><span aria-hidden="true">${mark} ${amount}</span></div></div>`;
+  }).join('');
 }
 
 function renderPlayers() {
@@ -377,7 +395,7 @@ function renderPlayers() {
     const online = roomData?.presence?.[player.uid]?.online;
     return `<div class="game-player${current?.uid === player.uid ? ' current' : ''}">
       <span class="player-avatar">${escapeHtml(player.name.slice(0, 1).toUpperCase())}</span>
-      <div class="game-player-info"><div class="game-player-name">${escapeHtml(player.name)}</div><div class="game-player-stats num">${holdings} saham · ${online === true ? 'online' : online === false ? 'offline' : 'menghubungkan'}${player.uid === user.uid && privatePlayer ? ` · ${privatePlayer.coins} koin` : ''}</div></div>
+      <div class="game-player-info"><div class="game-player-name">${escapeHtml(player.name)}${current?.uid === player.uid ? ' <span class="turn-label">Giliran</span>' : ''}</div><div class="game-player-stats num">${holdings} saham · <i class="dot ${online === true ? 'dot-up' : online === false ? 'dot-down' : 'dot-flat'}" aria-hidden="true"></i>${online === true ? 'online' : online === false ? 'offline' : 'menghubungkan'}${player.uid === user.uid && privatePlayer ? ` · ${privatePlayer.coins} koin` : ''}</div></div>
       <span class="game-player-order num">#${rank.get(player.uid) || '–'}</span>
     </div>`;
   }).join('');
@@ -472,7 +490,7 @@ function renderAction() {
   const currentTurnKey = `${game.round}-${game.turnIndex}-${player?.uid || ''}`;
   if (turnKey !== currentTurnKey) { turnKey = currentTurnKey; selectedCardId = ''; }
   const message = isMyTurn ? `Giliran Anda, ${escapeHtml(player.name)}. Ambil satu kartu terbuka.` : `Menunggu ${escapeHtml(player?.name || 'pemain')} memilih kartu dari perangkatnya.`;
-  const cards = game.pool.map((card) => `<button class="action-card${selectedCardId === card.id ? ' selected' : ''}" type="button" data-card-id="${escapeHtml(card.id)}" ${!isMyTurn ? 'disabled' : ''}><span class="action-sector">${escapeHtml(SECTOR_NAMES[card.theme])}</span><span class="action-effect">${escapeHtml(ACTION_LABELS[card.effect])}</span></button>`).join('');
+  const cards = game.pool.map((card) => `<button class="action-card${selectedCardId === card.id ? ' selected' : ''}" type="button" aria-pressed="${selectedCardId === card.id}" data-card-id="${escapeHtml(card.id)}" ${!isMyTurn ? 'disabled' : ''}>${selectedCardId === card.id ? '<span class="action-check" aria-hidden="true">✓</span>' : ''}<span class="action-sector">${escapeHtml(SECTOR_NAMES[card.theme])}</span><span class="action-effect">${escapeHtml(ACTION_LABELS[card.effect])}</span></button>`).join('');
   const selected = game.pool.find((card) => card.id === selectedCardId);
   const choice = selected && isMyTurn ? `<div class="choice-panel"><h3>${escapeHtml(ACTION_LABELS[selected.effect])} · ${escapeHtml(SECTOR_NAMES[selected.theme])}</h3><div class="phase-controls"><button class="button button-secondary" id="btn-save-card">Simpan jadi saham</button><button class="button button-primary" id="btn-activate-card">Aktifkan efek</button></div><div id="effect-form" hidden></div></div>` : '';
   elements.phasePanel.innerHTML = `<h2>Fase Aksi · Ronde ${game.round}</h2><p class="phase-copy">${message} Tersisa ${game.pool.length} kartu. Simpan kartu sebagai saham atau aktifkan efeknya.</p><div class="card-options">${cards}</div>${choice}`;
@@ -646,9 +664,10 @@ try {
   user = credential.user;
   onValue(ref(db, '.info/connected'), (snapshot) => {
     const connected = snapshot.val() === true;
-    elements.connection.textContent = connected ? '● TERHUBUNG' : '○ MENGHUBUNGKAN';
+    if (connected) hasConnected = true;
+    elements.connection.textContent = connected ? 'Terhubung' : hasConnected ? 'Terputus' : 'Menghubungkan…';
     elements.connection.classList.toggle('connected', connected);
-    elements.connection.classList.toggle('offline', !connected);
+    elements.connection.classList.toggle('offline', !connected && hasConnected);
   });
   if (requestedRoom && storedName) {
     try {
