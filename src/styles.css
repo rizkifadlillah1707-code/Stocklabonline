@@ -10,13 +10,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .app-shell { width: min(1180px, 100% - 48px); min-height: 100vh; margin: 0 auto; display: flex; flex-direction: column; }
 .topbar { height: 76px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); }
 .brand { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); font-size: 1.1rem; font-weight: 700; text-decoration: none; letter-spacing: -.04em; }
-.brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; color: var(--surface); background: var(--brand); font-size: .95rem; }
+.brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; color: var(--on-brand); background: var(--brand); font-size: .95rem; }
 .brand-accent { color: var(--brand); }
 .online-pill { display: inline-flex; align-items: center; gap: 5px; margin-left: 4px; padding: 4px 7px; border: 1px solid var(--up-line); border-radius: var(--radius-pill); color: var(--up-ink); font: 600 .59rem var(--font-mono); letter-spacing: .04em; }
 .online-pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--up-dot); }
 .connection-status { color: var(--faint); font: 500 .72rem var(--font-mono); }
-.connection-status.connected { color: var(--green); }
-.connection-status.offline { color: var(--brand); }
+.connection-status.connected { color: var(--up); }
+.connection-status.offline { color: var(--danger); }
 main { flex: 1; }
 .screen { padding: 48px 0 64px; }
 .hero-grid { min-height: 510px; display: grid; grid-template-columns: 1fr minmax(320px, 430px); gap: 64px; align-items: center; }
@@ -25,7 +25,7 @@ h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 16px; font-size: clamp(2.5rem, 5.6vw, 4.8rem); line-height: .98; letter-spacing: -.07em; }
 h1 span { color: var(--brand); }
 .hero-description { max-width: 52ch; color: var(--muted); font-size: 1.04rem; line-height: 1.7; }
-.feature-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 35px; color: var(--subtle); font: 500 .69rem var(--font-mono); }
+.feature-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 35px; color: var(--faint); font: 500 .69rem var(--font-mono); }
 .join-card, .host-card, .phase-panel, .player-panel, .error-card { border: 1px solid var(--line); border-radius: 15px; background: var(--surface-glass); box-shadow: var(--shadow-card); }
 .join-card { padding: 24px; }
 .tabs { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; margin-bottom: 24px; border-radius: 10px; background: var(--surface-sunken); }
@@ -33,14 +33,14 @@ h1 span { color: var(--brand); }
 .tab.active { color: var(--ink); background: var(--surface); box-shadow: var(--shadow-tab); }
 label { display: block; margin: 0 0 8px; color: var(--muted); font-size: .84rem; font-weight: 600; }
 input, select { width: 100%; min-height: 48px; margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); background: var(--surface); }
-input::placeholder { color: var(--placeholder); }
+input::placeholder { color: var(--faint); }
 input:focus, select:focus { border-color: var(--brand); outline: none; }
 .button { min-height: var(--tap-min); padding: 11px 16px; border: 1px solid transparent; border-radius: var(--radius-sm); font-weight: 700; transition: transform .12s, background .15s, border-color .15s; }
 .button:hover { transform: translateY(-1px); }
 .button:active { transform: translateY(0); }
 .button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
-.button-primary { color: var(--surface); background: var(--brand); }
-.button-primary:hover { background: var(--brand-dark); }
+.button-primary { color: var(--on-brand); background: var(--brand); }
+.button-primary:hover { background: var(--brand-strong); }
 .button-secondary { color: var(--ink); border-color: var(--line); background: var(--surface); }
 .button-secondary:hover { border-color: var(--line-strong); }
 .button-wide { width: 100%; display: flex; justify-content: space-between; align-items: center; }
@@ -81,8 +81,8 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
 .market-tile { min-width: 0; padding: 12px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); text-align: center; }
 .market-name { min-height: 25px; color: var(--muted); font-size: .68rem; }
 .market-price { margin-top: 4px; font: 700 1.35rem var(--font-mono); }
-.market-price.up { color: var(--green); }
-.market-price.down { color: var(--brand); }
+.market-price.up { color: var(--up); }
+.market-price.down { color: var(--down); }
 .phase-panel { min-height: 260px; padding: clamp(18px, 3vw, 28px); }
 .phase-panel h2 { margin-bottom: 6px; font-size: 1.3rem; }
 .phase-copy { margin: 0 0 19px; color: var(--muted); font-size: .88rem; line-height: 1.6; }
