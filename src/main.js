@@ -242,8 +242,8 @@ function renderLobby() {
     <div class="lobby-player">
       <span class="player-avatar">${escapeHtml(player.name.slice(0, 1).toUpperCase())}</span>
       <span class="lobby-player-name">${escapeHtml(player.name)}</span>
-      <span class="host-label" style="color:${roomData.presence?.[player.uid]?.online === true ? '#26875e' : '#aa9690'}">${roomData.presence?.[player.uid]?.online === true ? 'ONLINE' : roomData.presence?.[player.uid]?.online === false ? 'OFFLINE' : '…'}</span>
-      ${player.isHost || player.uid === roomData.meta.hostUid ? '<span class="host-label">MOD</span>' : `<span class="host-label" style="color:#aa9690">P${index + 1}</span>`}
+      <span class="host-label" style="color:${roomData.presence?.[player.uid]?.online === true ? 'var(--green)' : 'var(--faint)'}">${roomData.presence?.[player.uid]?.online === true ? 'ONLINE' : roomData.presence?.[player.uid]?.online === false ? 'OFFLINE' : '…'}</span>
+      ${player.isHost || player.uid === roomData.meta.hostUid ? '<span class="host-label">MOD</span>' : `<span class="host-label" style="color:var(--faint)">P${index + 1}</span>`}
     </div>`).join('');
 }
 

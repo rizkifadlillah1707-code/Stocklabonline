@@ -2,14 +2,39 @@
 :root {
   /* Warna (nama lama dipertahankan sampai tahap 3) */
   --bg: #fff7f6;
-  --panel: #fff;
+  --surface: #fff;
+  --surface-sunken: #fff1ee;
+  --surface-glass: #ffffffdb;
+  --surface-glass-soft: #ffffffb8;
+  --surface-glass-faint: #ffffff99;
   --line: #ead9d6;
+  --line-soft: #ead9d680;
+  --line-strong: #cbb8b2;
   --ink: #23130f;
   --muted: #786660;
   --faint: #aa9690;
   --brand: #e63946;
   --brand-dark: #c22233;
+  --brand-soft: #fde4e2;
+  --brand-ink: #a52b3a;
+  --brand-line: #f1c7c7;
+  --brand-line-strong: #ef999e;
   --green: #26875e;
+  --up-ink: #287957;
+  --up-line: #c9e7db;
+  --up-dot: #38a674;
+  --danger: #b52636;
+  --danger-ink: #9e2331;
+  --subtle: #9b8580;
+  --placeholder: #baa9a4;
+  --focus-ring-color: #ed7981;
+  --glow-warm: #fce5e3;
+  --glow-cool: #e2f4ef;
+
+  /* Bayangan */
+  --shadow-card: 0 15px 45px #481f1610;
+  --shadow-toast: 0 8px 28px #23130f20;
+  --shadow-tab: 0 2px 8px #23130f12;
 
   /* Tipografi */
   --font-sans: 'DM Sans', sans-serif;
