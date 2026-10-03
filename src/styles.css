@@ -287,3 +287,6 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
   body { background: var(--bg); }
   .join-card, .host-card, .phase-panel, .player-panel, .error-card { box-shadow: var(--shadow-card-lite); }
 }
+
+/* Banner sambung ulang (tahap 7e) */
+.connection-banner { margin-top: 10px; padding: 10px 14px; border: 1px solid var(--danger); border-radius: var(--radius-sm); color: var(--danger-ink); background: var(--brand-soft); font-size: var(--text-sm); line-height: 1.5; }

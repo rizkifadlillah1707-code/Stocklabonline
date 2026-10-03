@@ -1,4 +1,4 @@
-import { onValue, ref, set } from 'firebase/database';
+import { goOnline, onValue, ref, set } from 'firebase/database';
 import { authenticate, db } from './firebase.js';
 import {
   ACTION_LABELS,
@@ -38,6 +38,7 @@ import {
   trackPresence,
   updateRoomStatus
 } from './room-service.js';
+import { backAction, backMessage, bannerText, historyStep, shouldHoldWakeLock, shouldWarnOnUnload } from './lifecycle.js';
 
 const $ = (selector) => document.querySelector(selector);
 const elements = {
@@ -51,7 +52,7 @@ const elements = {
   gamePhaseTitle: $('#game-phase-title'), gameRoomCode: $('#game-room-code'), market: $('#market-strip'),
   phasePanel: $('#phase-panel'), gamePlayers: $('#game-players'), portfolioDashboard: $('#portfolio-dashboard'), gameMessage: $('#game-message'),
   sidebarRound: $('#sidebar-round'), fatalTitle: $('#fatal-title'), fatalMessage: $('#fatal-message'),
-  returnHome: $('#btn-return-home'), toastRegion: $('#toast-region'), hostTools: $('#host-tools')
+  returnHome: $('#btn-return-home'), toastRegion: $('#toast-region'), hostTools: $('#host-tools'), banner: $('#connection-banner')
 };
 
 let user = null;
@@ -81,6 +82,11 @@ let bidRosterKey = '';
 let lastPrices = {};
 let priceDelta = {};
 let hasConnected = false;
+let isConnected = false;
+let currentScreen = 'home';
+let wakeLock = null;
+let wakeLockBusy = false;
+let programmaticBack = false;
 const numberFormat = new Intl.NumberFormat('id-ID');
 
 // Perbarui DOM hanya bila markup berubah, supaya fokus, isi kolom, dan posisi gulir tidak hilang
@@ -122,9 +128,91 @@ function escapeHtml(value) {
 }
 
 function setScreen(screen) {
+  const name = screen === elements.lobby ? 'lobby' : screen === elements.game ? 'game' : screen === elements.error ? 'error' : 'home';
+  const changed = name !== currentScreen;
+  currentScreen = name;
   for (const item of [elements.home, elements.lobby, elements.game, elements.error]) item.hidden = item !== screen;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (changed) window.scrollTo({ top: 0, behavior: 'smooth' });
+  syncHistory(name);
+  syncWakeLock();
 }
+
+// Riwayat: beranda di dasar, lobby/game satu entri di atasnya, supaya Kembali tidak langsung keluar aplikasi.
+function syncHistory(name) {
+  const current = history.state?.screen === 'room' ? 'room' : 'home';
+  const step = historyStep({ target: name, current });
+  if (step === 'push') history.pushState({ screen: 'room' }, '');
+  else if (step === 'replace') history.replaceState({ screen: 'room' }, '');
+  else if (step === 'back') { programmaticBack = true; history.back(); }
+}
+
+// Simpan state riwayat saat parameter ?room berubah (replaceState(null) akan menghapus penanda entri).
+function setRoomParam(code) {
+  const url = new URL(window.location.href);
+  if (code) url.searchParams.set('room', code); else url.searchParams.delete('room');
+  history.replaceState(history.state, '', url);
+}
+
+async function leaveGameView() {
+  const code = roomCode;
+  stopRoomListeners();
+  if (code && user) {
+    try { await removePresence(db, code, user.uid); } catch { /* room mungkin sudah dihapus */ }
+  }
+  roomCode = '';
+  game = null;
+  fullGame = null;
+  roomData = null;
+  privatePlayer = null;
+  setMode('join');
+  elements.code.value = code;
+  setScreen(elements.home);
+}
+
+window.addEventListener('popstate', () => {
+  if (programmaticBack) { programmaticBack = false; return; }
+  const action = backAction({ screen: currentScreen, phase: game?.phase });
+  if (action === 'none') return;
+  if (action === 'leave-game') { leaveGameView(); return; }
+  if (!window.confirm(backMessage(action, isHost))) { history.pushState({ screen: 'room' }, ''); return; }
+  if (action === 'confirm-lobby') exitRoom(); else leaveGameView();
+});
+
+// Layar tetap menyala selama fase permainan; tidak semua peramban mendukung, jadi kegagalan diabaikan.
+async function syncWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLockBusy) return;
+  const wanted = shouldHoldWakeLock({ screen: currentScreen, phase: game?.phase }) && document.visibilityState === 'visible';
+  if (wanted && !wakeLock) {
+    wakeLockBusy = true;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch { wakeLock = null; } finally { wakeLockBusy = false; }
+  } else if (!wanted && wakeLock) {
+    const lock = wakeLock;
+    wakeLock = null;
+    try { await lock.release(); } catch { /* sudah dilepas */ }
+  }
+}
+
+function updateConnectionBanner() {
+  const text = bannerText({ connected: isConnected, hasConnected });
+  elements.banner.textContent = text;
+  elements.banner.hidden = !text;
+}
+
+// Kembali dari latar belakang: dorong SDK menyambung ulang; langganan realtime menyinkronkan state sendiri.
+function resumeFromBackground() {
+  try { goOnline(db); } catch { /* SDK belum siap */ }
+  syncWakeLock();
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resumeFromBackground(); });
+window.addEventListener('pageshow', resumeFromBackground);
+window.addEventListener('beforeunload', (event) => {
+  if (!shouldWarnOnUnload({ isHost, screen: currentScreen, phase: game?.phase })) return;
+  event.preventDefault();
+  event.returnValue = '';
+});
 
 function toast(message, isError = false) {
   const item = document.createElement('div');
@@ -632,6 +720,7 @@ function renderGame() {
   else if (game.phase === 'sell') renderSale();
   else renderEconomy();
   restoreFormState(elements.phasePanel, formState);
+  syncWakeLock();
 }
 
 async function handleRoomForm(event) {
@@ -645,9 +734,7 @@ async function handleRoomForm(event) {
     if (!name) throw new Error('Masukkan nama pemain.');
     const room = selectedMode === 'create' ? await createRoom(db, user.uid, name) : await joinRoom(db, user.uid, name, code);
     localStorage.setItem('stocklab-name', name);
-    const url = new URL(window.location.href);
-    url.searchParams.set('room', room);
-    history.replaceState(null, '', url);
+    setRoomParam(room);
     openRoom(room);
   } catch (error) {
     showHomeError(error.message);
@@ -673,9 +760,7 @@ async function exitRoom() {
   roomCode = '';
   game = null;
   roomData = null;
-  const url = new URL(window.location.href);
-  url.searchParams.delete('room');
-  history.replaceState(null, '', url);
+  setRoomParam('');
   setScreen(elements.home);
 }
 
@@ -744,9 +829,7 @@ elements.returnHome.addEventListener('click', async () => {
   game = null;
   fullGame = null;
   roomData = null;
-  const url = new URL(window.location.href);
-  url.searchParams.delete('room');
-  history.replaceState(null, '', url);
+  setRoomParam('');
   setScreen(elements.home);
 });
 
@@ -763,7 +846,9 @@ try {
   user = credential.user;
   onValue(ref(db, '.info/connected'), (snapshot) => {
     const connected = snapshot.val() === true;
+    isConnected = connected;
     if (connected) hasConnected = true;
+    updateConnectionBanner();
     elements.connection.textContent = connected ? 'Terhubung' : hasConnected ? 'Terputus' : 'Menghubungkan…';
     elements.connection.classList.toggle('connected', connected);
     elements.connection.classList.toggle('offline', !connected && hasConnected);
