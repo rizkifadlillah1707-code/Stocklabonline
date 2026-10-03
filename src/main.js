@@ -365,7 +365,7 @@ function phaseCopy(phase) {
 function renderMarket() {
   const items = [...game.sectors.map((sector) => ({ id: sector.id, name: sector.name, price: sector.price })), { id: 'reksadana', name: 'Reksa Dana', price: sectorPrice(game, 'reksadana') }];
   elements.market.innerHTML = items.map((sector) => `
-    <div class="market-tile"><div class="market-name">${escapeHtml(sector.name)}</div><div class="market-price">${sector.price}</div></div>`).join('');
+    <div class="market-tile"><div class="market-name">${escapeHtml(sector.name)}</div><div class="market-price num">${sector.price}</div></div>`).join('');
 }
 
 function renderPlayers() {
@@ -377,8 +377,8 @@ function renderPlayers() {
     const online = roomData?.presence?.[player.uid]?.online;
     return `<div class="game-player${current?.uid === player.uid ? ' current' : ''}">
       <span class="player-avatar">${escapeHtml(player.name.slice(0, 1).toUpperCase())}</span>
-      <div class="game-player-info"><div class="game-player-name">${escapeHtml(player.name)}</div><div class="game-player-stats">${holdings} saham · ${online === true ? 'online' : online === false ? 'offline' : 'menghubungkan'}${player.uid === user.uid && privatePlayer ? ` · ${privatePlayer.coins} koin` : ''}</div></div>
-      <span class="game-player-order">#${rank.get(player.uid) || '–'}</span>
+      <div class="game-player-info"><div class="game-player-name">${escapeHtml(player.name)}</div><div class="game-player-stats num">${holdings} saham · ${online === true ? 'online' : online === false ? 'offline' : 'menghubungkan'}${player.uid === user.uid && privatePlayer ? ` · ${privatePlayer.coins} koin` : ''}</div></div>
+      <span class="game-player-order num">#${rank.get(player.uid) || '–'}</span>
     </div>`;
   }).join('');
   const currentIsOffline = current && roomData?.presence?.[current.uid]?.online === false;
@@ -417,7 +417,7 @@ function renderPortfolioDashboard() {
     return `<tr class="${player.uid === user.uid ? 'me' : ''}"><th scope="row">${escapeHtml(player.name)}${player.uid === user.uid ? ' (Anda)' : ''}</th>${cells}<td class="value">${value}</td></tr>`;
   }).join('');
   const totals = ids.map((id) => `<td>${game.players.reduce((sum, player) => sum + (player.holdings[id] || 0), 0)}</td>`).join('');
-  elements.portfolioDashboard.innerHTML = `<div class="sidebar-heading"><h2>Dashboard Portofolio</h2><span>TERBUKA UNTUK SEMUA</span></div><div class="table-scroll"><table class="portfolio-table"><thead><tr><th>Pemain</th>${head}<th>Nilai saham<small>koin</small></th></tr></thead><tbody>${body}</tbody><tfoot><tr><th>Total beredar</th>${totals}<td></td></tr></tfoot></table></div>`;
+  elements.portfolioDashboard.innerHTML = `<div class="sidebar-heading"><h2>Dashboard Portofolio</h2><span>TERBUKA UNTUK SEMUA</span></div><div class="table-scroll"><table class="portfolio-table num"><thead><tr><th>Pemain</th>${head}<th>Nilai saham<small>koin</small></th></tr></thead><tbody>${body}</tbody><tfoot><tr><th>Total beredar</th>${totals}<td></td></tr></tfoot></table></div>`;
 }
 
 function renderBidding() {
@@ -431,10 +431,10 @@ function renderBidding() {
     ? `<div class="status-item"><strong>Tawaran terkunci</strong><span>Menunggu moderator membuka semua tawaran.</span></div>`
     : !privatePlayer
       ? '<div class="status-item"><strong>Menyiapkan saldo privat…</strong><span>Form tawaran akan aktif sebentar lagi.</span></div>'
-    : `<form id="bid-form" class="bid-form"><label for="bid-amount">Tawaran rahasia · saldo ${coins} koin</label><input id="bid-amount" type="number" min="${minimumBid}" max="${coins}" value="${minimumBid}" required /><button class="button button-primary">Kunci tawaran</button></form>
+    : `<form id="bid-form" class="bid-form"><label for="bid-amount">Tawaran rahasia · saldo ${coins} koin</label><input id="bid-amount" class="num" type="number" min="${minimumBid}" max="${coins}" value="${minimumBid}" required /><button class="button button-primary">Kunci tawaran</button></form>
        ${game.utangRemaining > 0 ? '<button class="button button-secondary" id="btn-loan" type="button">Pinjam 10 koin dari Bank</button>' : ''}`;
   const hostAction = isHost ? `<div class="status-item"><strong>${submitted}/${game.players.length} masuk</strong><span>${submitted === game.players.length ? 'Semua siap dibuka' : 'Tunggu semua tawaran'}</span></div><button class="button button-primary button-wide" id="btn-reveal-bids" type="button" ${submitted !== game.players.length || !fullGame ? 'disabled' : ''}>Buka tawaran & mulai fase aksi →</button>` : '';
-  elements.phasePanel.innerHTML = `<h2>Fase Bidding · Ronde ${game.round}</h2><p class="phase-copy">Masukkan tawaran dari perangkat Anda. Nilai tawaran tidak terlihat oleh peserta lain; saldo dibayar ke Bank saat hasil dibuka.</p>${renderPoolPreview()}${bidForm}<div class="status-list"><div class="status-item"><span>${escapeHtml(progress)}</span><strong>${game.utangRemaining} kartu utang</strong></div></div>${hostAction}`;
+  elements.phasePanel.innerHTML = `<h2>Fase Bidding · Ronde ${game.round}</h2><p class="phase-copy">Masukkan tawaran dari perangkat Anda. Nilai tawaran tidak terlihat oleh peserta lain; saldo dibayar ke Bank saat hasil dibuka.</p>${renderPoolPreview()}${bidForm}<div class="status-list num"><div class="status-item"><span>${escapeHtml(progress)}</span><strong>${game.utangRemaining} kartu utang</strong></div></div>${hostAction}`;
   $('#bid-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const amount = Number($('#bid-amount').value);
@@ -502,7 +502,7 @@ function renderSale() {
   const isMyTurn = player?.uid === user.uid;
   const owned = Object.keys(player?.holdings || {}).filter((id) => player.holdings[id] > 0);
   const controls = isMyTurn ? (owned.length
-    ? `<form id="sale-form" class="phase-controls"><select id="sale-sector" aria-label="Pilih saham untuk dijual">${owned.map((id) => `<option value="${id}">${escapeHtml(SECTOR_NAMES[id])} · ${player.holdings[id]} × ${sectorPrice(game, id)} koin</option>`).join('')}</select><input id="sale-quantity" type="number" min="0" max="${player.holdings[owned[0]]}" value="${player.holdings[owned[0]]}" aria-label="Jumlah saham" /><button class="button button-primary">Jual saham</button><button class="button button-secondary" id="btn-skip-sale" type="button">Lewati</button></form>`
+    ? `<form id="sale-form" class="phase-controls"><select id="sale-sector" aria-label="Pilih saham untuk dijual">${owned.map((id) => `<option value="${id}">${escapeHtml(SECTOR_NAMES[id])} · ${player.holdings[id]} × ${sectorPrice(game, id)} koin</option>`).join('')}</select><input id="sale-quantity" class="num" type="number" min="0" max="${player.holdings[owned[0]]}" value="${player.holdings[owned[0]]}" aria-label="Jumlah saham" /><button class="button button-primary">Jual saham</button><button class="button button-secondary" id="btn-skip-sale" type="button">Lewati</button></form>`
     : '<p class="phase-copy">Anda tidak memiliki saham untuk dijual.</p><button class="button button-secondary" id="btn-skip-sale" type="button">Lanjutkan</button>')
     : `<p class="phase-copy">Menunggu ${escapeHtml(player?.name || 'pemain')} menyelesaikan giliran jual.</p>`;
   elements.phasePanel.innerHTML = `<h2>Fase Jual · Ronde ${game.round}</h2><p class="phase-copy">${isMyTurn ? 'Jual satu jenis saham dalam jumlah yang diinginkan, atau lewati.' : `Pemain saat ini: ${escapeHtml(player?.name || '')}.`}</p>${controls}`;
@@ -519,8 +519,8 @@ function renderSale() {
 }
 
 function renderEconomy() {
-  const log = game.economyLog?.length ? `<div class="status-list">${game.economyLog.map((line) => `<div class="status-item"><span>${escapeHtml(line)}</span></div>`).join('')}</div>` : '';
-  const cards = game.lastEconomyCards?.length ? `<div class="status-list">${game.lastEconomyCards.map((card) => `<div class="status-item"><span>${escapeHtml(card.sectorName)}</span><strong>${escapeHtml(card.label)}</strong></div>`).join('')}</div>` : '';
+  const log = game.economyLog?.length ? `<div class="status-list num">${game.economyLog.map((line) => `<div class="status-item"><span>${escapeHtml(line)}</span></div>`).join('')}</div>` : '';
+  const cards = game.lastEconomyCards?.length ? `<div class="status-list num">${game.lastEconomyCards.map((card) => `<div class="status-item"><span>${escapeHtml(card.sectorName)}</span><strong>${escapeHtml(card.label)}</strong></div>`).join('')}</div>` : '';
   if (game.phase === 'economy') {
     elements.phasePanel.innerHTML = `<h2>Semua pemain selesai menjual</h2><p class="phase-copy">Moderator membuka Kartu Ekonomi untuk menggerakkan seluruh sektor.</p>${isHost ? '<button class="button button-primary" id="btn-run-economy">Buka Kartu Ekonomi →</button>' : '<div class="status-item"><strong>Menunggu moderator</strong><span>Harga akan diperbarui serentak.</span></div>'}`;
     $('#btn-run-economy')?.addEventListener('click', runEconomy);
@@ -529,7 +529,7 @@ function renderEconomy() {
     $('#btn-next-round')?.addEventListener('click', nextRound);
   } else {
     const scores = game.publicScores || [];
-    elements.phasePanel.innerHTML = `<h2>Investor Terbaik: ${escapeHtml(scores[0]?.name || '—')}</h2><p class="phase-copy">Skor akhir = koin + nilai saham − utang.</p><div class="status-list">${scores.map((score, index) => `<div class="status-item"><span>#${index + 1} · ${escapeHtml(score.name)} (${score.coins} + ${score.shareValue} − ${score.debt})</span><strong>${score.total}</strong></div>`).join('')}</div>`;
+    elements.phasePanel.innerHTML = `<h2>Investor Terbaik: ${escapeHtml(scores[0]?.name || '—')}</h2><p class="phase-copy">Skor akhir = koin + nilai saham − utang.</p><div class="status-list num">${scores.map((score, index) => `<div class="status-item"><span>#${index + 1} · ${escapeHtml(score.name)} (${score.coins} + ${score.shareValue} − ${score.debt})</span><strong>${score.total}</strong></div>`).join('')}</div>`;
   }
 }
 
