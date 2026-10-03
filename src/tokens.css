@@ -1,5 +1,7 @@
 /* Design token StockLab. Tahap 1: hanya tema terang; nilai sama dengan tampilan sebelumnya. */
 :root {
+  color-scheme: light;
+
   /* Warna (nama lama dipertahankan sampai tahap 3) */
   --bg: #fff7f6;
   --surface: #fff;
@@ -67,4 +69,78 @@
 
   /* Kontrol */
   --tap-min: 44px;
+}
+
+/* Tema gelap: mengikuti sistem, atau dipaksa lewat data-theme (tombol di topbar) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #16100f;
+    --surface: #211917;
+    --surface-sunken: #2a201e;
+    --surface-glass: #211917db;
+    --surface-glass-soft: #211917b8;
+    --surface-glass-faint: #21191799;
+    --line: #3b2f2c;
+    --line-soft: #3b2f2c80;
+    --line-strong: #5a4a46;
+    --ink: #f6ebe8;
+    --muted: #c9b8b3;
+    --faint: #a8958f;
+    --brand: #ef6b78;
+    --brand-strong: #f58b95;
+    --on-brand: #1b0a0d;
+    --brand-soft: #3a1f23;
+    --brand-ink: #f4a0a8;
+    --brand-line: #5c2a31;
+    --brand-line-strong: #ef6b78;
+    --up: #4cc28a;
+    --down: #ff7a73;
+    --flat: #c9b8b3;
+    --up-ink: #6fd3a3;
+    --up-line: #2a5a46;
+    --up-dot: #4cc28a;
+    --danger: #ff8a94;
+    --danger-ink: #ffb0b6;
+    --glow-warm: #2a1517;
+    --glow-cool: #11231d;
+    --shadow-card: none;
+    --shadow-toast: 0 8px 28px #00000066;
+    --shadow-tab: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #16100f;
+  --surface: #211917;
+  --surface-sunken: #2a201e;
+  --surface-glass: #211917db;
+  --surface-glass-soft: #211917b8;
+  --surface-glass-faint: #21191799;
+  --line: #3b2f2c;
+  --line-soft: #3b2f2c80;
+  --line-strong: #5a4a46;
+  --ink: #f6ebe8;
+  --muted: #c9b8b3;
+  --faint: #a8958f;
+  --brand: #ef6b78;
+  --brand-strong: #f58b95;
+  --on-brand: #1b0a0d;
+  --brand-soft: #3a1f23;
+  --brand-ink: #f4a0a8;
+  --brand-line: #5c2a31;
+  --brand-line-strong: #ef6b78;
+  --up: #4cc28a;
+  --down: #ff7a73;
+  --flat: #c9b8b3;
+  --up-ink: #6fd3a3;
+  --up-line: #2a5a46;
+  --up-dot: #4cc28a;
+  --danger: #ff8a94;
+  --danger-ink: #ffb0b6;
+  --glow-warm: #2a1517;
+  --glow-cool: #11231d;
+  --shadow-card: none;
+  --shadow-toast: 0 8px 28px #00000066;
+  --shadow-tab: none;
 }

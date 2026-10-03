@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#fff7f6" />
     <meta name="description" content="StockLab Online — simulasi lantai bursa bersama teman, dari perangkat masing-masing." />
     <title>StockLab Online — Simulasi Lantai Bursa</title>
+    <script>try { var theme = localStorage.getItem('stocklab-theme'); if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme; } catch { /* penyimpanan bisa diblokir */ }</script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -19,7 +20,7 @@
           <span class="brand-mark">S</span><span>Stock<span class="brand-accent">Lab</span></span>
           <span class="online-pill"><i></i> ONLINE</span>
         </a>
-        <span id="connection-status" class="connection-status" role="status">Menghubungkan…</span>
+        <div class="topbar-actions"><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Ganti tema terang/gelap">◐</button><span id="connection-status" class="connection-status" role="status">Menghubungkan…</span></div>
       </header>
 
       <main>

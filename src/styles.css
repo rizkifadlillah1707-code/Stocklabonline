@@ -212,3 +212,12 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
 /* Kolom nama tabel menempel saat tabel bergulir (tahap 6) */
 .portfolio-table thead th:first-child, .portfolio-table tbody th, .portfolio-table tfoot th { position: sticky; left: 0; z-index: 1; background: var(--surface); }
 .portfolio-table tr.me th { background: var(--surface-sunken); }
+
+/* Tombol ganti tema (tahap 7) */
+.topbar-actions { display: flex; align-items: center; gap: 12px; }
+.theme-toggle { display: grid; place-items: center; width: var(--tap-min); height: var(--tap-min); padding: 0; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); background: var(--surface); font-size: 1.1rem; line-height: 1; }
+@media (max-width: 480px) {
+  /* Pil ONLINE hanya hiasan; status koneksi sudah ada di kanan */
+  .online-pill { display: none; }
+  .topbar-actions { gap: 8px; }
+}

@@ -627,6 +627,16 @@ function setMode(mode) {
   showHomeError('');
 }
 
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem('stocklab-theme', theme); } catch { /* mode privat: pilihan tidak tersimpan */ }
+}
+
+$('#theme-toggle').addEventListener('click', () => {
+  const current = document.documentElement.dataset.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
 elements.createTab.addEventListener('click', () => setMode('create'));
 elements.joinTab.addEventListener('click', () => setMode('join'));
 elements.roomForm.addEventListener('submit', handleRoomForm);
