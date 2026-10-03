@@ -83,6 +83,40 @@ let priceDelta = {};
 let hasConnected = false;
 const numberFormat = new Intl.NumberFormat('id-ID');
 
+// Perbarui DOM hanya bila markup berubah, supaya fokus, isi kolom, dan posisi gulir tidak hilang
+// saat langganan realtime memicu render ulang dengan data yang sama.
+let htmlCache = new WeakMap();
+function setHtml(element, html) {
+  if (htmlCache.get(element) === html) return false;
+  element.innerHTML = html;
+  htmlCache.set(element, html);
+  return true;
+}
+
+function captureFormState(container) {
+  const active = document.activeElement;
+  const state = { values: {}, focusId: container.contains(active) ? active.id : '', selection: null };
+  container.querySelectorAll('input[id], select[id]').forEach((field) => {
+    state.values[field.id] = field.multiple ? [...field.selectedOptions].map((option) => option.value) : field.value;
+  });
+  if (state.focusId && typeof active.selectionStart === 'number') state.selection = [active.selectionStart, active.selectionEnd];
+  return state;
+}
+
+function restoreFormState(container, state) {
+  for (const [id, value] of Object.entries(state.values)) {
+    const field = container.querySelector(`#${CSS.escape(id)}`);
+    if (!field) continue;
+    if (field.multiple) [...field.options].forEach((option) => { option.selected = value.includes(option.value); });
+    else if (field.tagName !== 'SELECT' || [...field.options].some((option) => option.value === value)) { if (field.value !== value) field.value = value; }
+  }
+  const focused = state.focusId && container.querySelector(`#${CSS.escape(state.focusId)}`);
+  if (focused && document.activeElement !== focused) {
+    focused.focus({ preventScroll: true });
+    if (state.selection && typeof focused.setSelectionRange === 'function') { try { focused.setSelectionRange(...state.selection); } catch { /* tipe input tanpa seleksi */ } }
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 }
@@ -162,6 +196,7 @@ function openRoom(code) {
   turnKey = '';
   lastPrices = {};
   priceDelta = {};
+  htmlCache = new WeakMap();
   unsubscribePresence = trackPresence(db, code, user.uid, (error) => toast(`Status koneksi room gagal: ${error.message}`, true));
   unsubscribeRoom = subscribeRoom(db, code, (data) => {
     if (!data) {
@@ -397,7 +432,7 @@ function renderMarket() {
     if (sector.id in lastPrices && lastPrices[sector.id] !== sector.price) priceDelta[sector.id] = sector.price - lastPrices[sector.id];
     lastPrices[sector.id] = sector.price;
   }
-  elements.market.innerHTML = items.map((sector) => {
+  setHtml(elements.market, items.map((sector) => {
     const delta = priceDelta[sector.id] || 0;
     const trend = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
     const mark = delta > 0 ? '▲' : delta < 0 ? '▼' : '–';
@@ -405,14 +440,14 @@ function renderMarket() {
     const label = delta > 0 ? `naik ${numberFormat.format(delta)}` : delta < 0 ? `turun ${numberFormat.format(-delta)}` : 'tidak berubah';
     return `
     <div class="market-tile"><div class="market-name">${escapeHtml(sector.name)}</div><div class="market-price num ${trend}">${numberFormat.format(sector.price)}</div><div class="market-delta num ${trend}" aria-label="${label}"><span aria-hidden="true">${mark} ${amount}</span></div></div>`;
-  }).join('');
+  }).join(''));
 }
 
 function renderPlayers() {
   const current = currentPlayer(game);
   const rank = new Map(game.order.map((uid, index) => [uid, index + 1]));
   const sorted = [...game.players].sort((a, b) => rank.get(a.uid) - rank.get(b.uid));
-  elements.gamePlayers.innerHTML = sorted.map((player) => {
+  setHtml(elements.gamePlayers, sorted.map((player) => {
     const holdings = Object.values(player.holdings).reduce((sum, amount) => sum + amount, 0);
     const online = roomData?.presence?.[player.uid]?.online;
     return `<div class="game-player${current?.uid === player.uid ? ' current' : ''}">
@@ -420,11 +455,11 @@ function renderPlayers() {
       <div class="game-player-info"><div class="game-player-name">${escapeHtml(player.name)}${current?.uid === player.uid ? ' <span class="turn-label">Giliran</span>' : ''}</div><div class="game-player-stats num">${holdings} saham · <i class="dot ${online === true ? 'dot-up' : online === false ? 'dot-down' : 'dot-flat'}" aria-hidden="true"></i>${online === true ? 'online' : online === false ? 'offline' : 'menghubungkan'}${player.uid === user.uid && privatePlayer ? ` · ${privatePlayer.coins} koin` : ''}</div></div>
       <span class="game-player-order num">#${rank.get(player.uid) || '–'}</span>
     </div>`;
-  }).join('');
+  }).join(''));
   const currentIsOffline = current && roomData?.presence?.[current.uid]?.online === false;
   elements.hostTools.hidden = !isHost || !currentIsOffline || !['action', 'sell'].includes(game.phase);
-  elements.hostTools.innerHTML = elements.hostTools.hidden ? '' : '<button class="button button-secondary" id="btn-skip-turn" type="button">Lewati giliran pemain offline</button>';
-  $('#btn-skip-turn')?.addEventListener('click', (event) => withBusy(event.currentTarget, async () => {
+  const hostToolsChanged = setHtml(elements.hostTools, elements.hostTools.hidden ? '' : '<button class="button button-secondary" id="btn-skip-turn" type="button">Lewati giliran pemain offline</button>');
+  if (hostToolsChanged) $('#btn-skip-turn')?.addEventListener('click', (event) => withBusy(event.currentTarget, async () => {
     try {
       const nextGame = structuredClone(fullGame);
       skipCurrentTurn(nextGame);
@@ -457,7 +492,7 @@ function renderPortfolioDashboard() {
     return `<tr class="${player.uid === user.uid ? 'me' : ''}"><th scope="row">${escapeHtml(player.name)}${player.uid === user.uid ? ' (Anda)' : ''}</th>${cells}<td class="value">${value}</td></tr>`;
   }).join('');
   const totals = ids.map((id) => `<td>${game.players.reduce((sum, player) => sum + (player.holdings[id] || 0), 0)}</td>`).join('');
-  elements.portfolioDashboard.innerHTML = `<div class="sidebar-heading"><h2>Dashboard Portofolio</h2><span>TERBUKA UNTUK SEMUA</span></div><div class="table-scroll"><table class="portfolio-table num"><thead><tr><th>Pemain</th>${head}<th>Nilai saham<small>koin</small></th></tr></thead><tbody>${body}</tbody><tfoot><tr><th>Total beredar</th>${totals}<td></td></tr></tfoot></table></div>`;
+  setHtml(elements.portfolioDashboard, `<div class="sidebar-heading"><h2>Dashboard Portofolio</h2><span>TERBUKA UNTUK SEMUA</span></div><div class="table-scroll"><table class="portfolio-table num"><thead><tr><th>Pemain</th>${head}<th>Nilai saham<small>koin</small></th></tr></thead><tbody>${body}</tbody><tfoot><tr><th>Total beredar</th>${totals}<td></td></tr></tfoot></table></div>`);
 }
 
 function renderBidding() {
@@ -474,7 +509,7 @@ function renderBidding() {
     : `<form id="bid-form" class="bid-form"><label for="bid-amount">Tawaran rahasia · saldo ${coins} koin</label><p class="field-hint" id="bid-hint">Isi bilangan bulat ${minimumBid}–${coins} koin.</p><input id="bid-amount" class="num" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="send" autocomplete="off" aria-describedby="bid-hint bid-error" value="${minimumBid}" required /><button class="button button-primary">Kunci tawaran</button><p class="error-text field-error" id="bid-error" role="alert" hidden></p></form>
        ${game.utangRemaining > 0 ? '<button class="button button-secondary" id="btn-loan" type="button">Pinjam 10 koin dari Bank</button>' : ''}`;
   const hostAction = isHost ? `<div class="status-item"><strong>${submitted}/${game.players.length} masuk</strong><span>${submitted === game.players.length ? 'Semua siap dibuka' : 'Tunggu semua tawaran'}</span></div><button class="button button-primary button-wide" id="btn-reveal-bids" type="button" ${submitted !== game.players.length || !fullGame ? 'disabled' : ''}>Buka tawaran & mulai fase aksi →</button>` : '';
-  elements.phasePanel.innerHTML = `<h2>Fase Bidding · Ronde ${game.round}</h2><p class="phase-copy">Masukkan tawaran dari perangkat Anda. Nilai tawaran tidak terlihat oleh peserta lain; saldo dibayar ke Bank saat hasil dibuka.</p>${renderPoolPreview()}${bidForm}<div class="status-list num"><div class="status-item"><span>${escapeHtml(progress)}</span><strong>${game.utangRemaining} kartu utang</strong></div></div>${hostAction}`;
+  if (!setHtml(elements.phasePanel, `<h2>Fase Bidding · Ronde ${game.round}</h2><p class="phase-copy">Masukkan tawaran dari perangkat Anda. Nilai tawaran tidak terlihat oleh peserta lain; saldo dibayar ke Bank saat hasil dibuka.</p>${renderPoolPreview()}${bidForm}<div class="status-list num"><div class="status-item"><span>${escapeHtml(progress)}</span><strong>${game.utangRemaining} kartu utang</strong></div></div>${hostAction}`)) return;
   $('#bid-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const amount = Number($('#bid-amount').value);
@@ -523,7 +558,7 @@ function renderAction() {
   const cards = game.pool.map((card) => `<button class="action-card${selectedCardId === card.id ? ' selected' : ''}" type="button" aria-pressed="${selectedCardId === card.id}" data-card-id="${escapeHtml(card.id)}" ${!isMyTurn ? 'disabled' : ''}>${selectedCardId === card.id ? '<span class="action-check" aria-hidden="true">✓</span>' : ''}<span class="action-sector">${escapeHtml(SECTOR_NAMES[card.theme])}</span><span class="action-effect">${escapeHtml(ACTION_LABELS[card.effect])}</span></button>`).join('');
   const selected = game.pool.find((card) => card.id === selectedCardId);
   const choice = selected && isMyTurn ? `<div class="choice-panel"><h3>${escapeHtml(ACTION_LABELS[selected.effect])} · ${escapeHtml(SECTOR_NAMES[selected.theme])}</h3><div class="phase-controls"><button class="button button-secondary" id="btn-save-card">Simpan jadi saham</button><button class="button button-primary" id="btn-activate-card">Aktifkan efek</button></div><div id="effect-form" hidden></div></div>` : '';
-  elements.phasePanel.innerHTML = `<h2>Fase Aksi · Ronde ${game.round}</h2><p class="phase-copy">${message} Tersisa ${game.pool.length} kartu. Simpan kartu sebagai saham atau aktifkan efeknya.</p><div class="card-options">${cards}</div>${choice}`;
+  if (!setHtml(elements.phasePanel, `<h2>Fase Aksi · Ronde ${game.round}</h2><p class="phase-copy">${message} Tersisa ${game.pool.length} kartu. Simpan kartu sebagai saham atau aktifkan efeknya.</p><div class="card-options">${cards}</div>${choice}`)) return;
   elements.phasePanel.querySelectorAll('[data-card-id]').forEach((button) => button.addEventListener('click', () => { selectedCardId = button.dataset.cardId; renderGame(); }));
   $('#btn-save-card')?.addEventListener('click', (event) => withBusy(event.currentTarget, () => submitPlayerCommand('action', { cardId: selectedCardId, mode: 'save' }), 2500));
   $('#btn-activate-card')?.addEventListener('click', () => {
@@ -553,7 +588,7 @@ function renderSale() {
     ? `<form id="sale-form" class="phase-controls"><select id="sale-sector" aria-label="Pilih saham untuk dijual">${owned.map((id) => `<option value="${id}">${escapeHtml(SECTOR_NAMES[id])} · ${player.holdings[id]} × ${sectorPrice(game, id)} koin</option>`).join('')}</select><input id="sale-quantity" class="num" type="number" inputmode="numeric" enterkeyhint="send" min="0" max="${player.holdings[owned[0]]}" value="${player.holdings[owned[0]]}" aria-label="Jumlah saham" /><button class="button button-primary">Jual saham</button><button class="button button-secondary" id="btn-skip-sale" type="button">Lewati</button></form>`
     : '<p class="phase-copy">Anda tidak memiliki saham untuk dijual.</p><button class="button button-secondary" id="btn-skip-sale" type="button">Lanjutkan</button>')
     : `<p class="phase-copy">Menunggu ${escapeHtml(player?.name || 'pemain')} menyelesaikan giliran jual.</p>`;
-  elements.phasePanel.innerHTML = `<h2>Fase Jual · Ronde ${game.round}</h2><p class="phase-copy">${isMyTurn ? 'Jual satu jenis saham dalam jumlah yang diinginkan, atau lewati.' : `Pemain saat ini: ${escapeHtml(player?.name || '')}.`}</p>${controls}`;
+  if (!setHtml(elements.phasePanel, `<h2>Fase Jual · Ronde ${game.round}</h2><p class="phase-copy">${isMyTurn ? 'Jual satu jenis saham dalam jumlah yang diinginkan, atau lewati.' : `Pemain saat ini: ${escapeHtml(player?.name || '')}.`}</p>${controls}`)) return;
   $('#sale-form')?.addEventListener('submit', (event) => {
     event.preventDefault();
     withBusy(event.submitter, () => submitPlayerCommand('sell', { sectorId: $('#sale-sector').value, quantity: Number($('#sale-quantity').value) }), 2500);
@@ -570,14 +605,12 @@ function renderEconomy() {
   const log = game.economyLog?.length ? `<div class="status-list num">${game.economyLog.map((line) => `<div class="status-item"><span>${escapeHtml(line)}</span></div>`).join('')}</div>` : '';
   const cards = game.lastEconomyCards?.length ? `<div class="status-list num">${game.lastEconomyCards.map((card) => `<div class="status-item"><span>${escapeHtml(card.sectorName)}</span><strong>${escapeHtml(card.label)}</strong></div>`).join('')}</div>` : '';
   if (game.phase === 'economy') {
-    elements.phasePanel.innerHTML = `<h2>Semua pemain selesai menjual</h2><p class="phase-copy">Moderator membuka Kartu Ekonomi untuk menggerakkan seluruh sektor.</p>${isHost ? '<button class="button button-primary" id="btn-run-economy">Buka Kartu Ekonomi →</button>' : '<div class="status-item"><strong>Menunggu moderator</strong><span>Harga akan diperbarui serentak.</span></div>'}`;
-    $('#btn-run-economy')?.addEventListener('click', (event) => withBusy(event.currentTarget, runEconomy));
+    if (setHtml(elements.phasePanel, `<h2>Semua pemain selesai menjual</h2><p class="phase-copy">Moderator membuka Kartu Ekonomi untuk menggerakkan seluruh sektor.</p>${isHost ? '<button class="button button-primary" id="btn-run-economy">Buka Kartu Ekonomi →</button>' : '<div class="status-item"><strong>Menunggu moderator</strong><span>Harga akan diperbarui serentak.</span></div>'}`)) $('#btn-run-economy')?.addEventListener('click', (event) => withBusy(event.currentTarget, runEconomy));
   } else if (game.phase === 'between') {
-    elements.phasePanel.innerHTML = `<h2>Ringkasan Ekonomi · Ronde ${game.round}</h2><p class="phase-copy">${game.lastMessage}</p>${cards}${log}${isHost ? '<button class="button button-primary" id="btn-next-round">Mulai ronde berikutnya →</button>' : '<div class="status-item"><strong>Menunggu moderator</strong><span>Ronde berikutnya segera dimulai.</span></div>'}`;
-    $('#btn-next-round')?.addEventListener('click', (event) => withBusy(event.currentTarget, nextRound));
+    if (setHtml(elements.phasePanel, `<h2>Ringkasan Ekonomi · Ronde ${game.round}</h2><p class="phase-copy">${game.lastMessage}</p>${cards}${log}${isHost ? '<button class="button button-primary" id="btn-next-round">Mulai ronde berikutnya →</button>' : '<div class="status-item"><strong>Menunggu moderator</strong><span>Ronde berikutnya segera dimulai.</span></div>'}`)) $('#btn-next-round')?.addEventListener('click', (event) => withBusy(event.currentTarget, nextRound));
   } else {
     const scores = game.publicScores || [];
-    elements.phasePanel.innerHTML = `<h2>Investor Terbaik: ${escapeHtml(scores[0]?.name || '—')}</h2><p class="phase-copy">Skor akhir = koin + nilai saham − utang.</p><div class="status-list num">${scores.map((score, index) => `<div class="status-item"><span>#${index + 1} · ${escapeHtml(score.name)} (${score.coins} + ${score.shareValue} − ${score.debt})</span><strong>${score.total}</strong></div>`).join('')}</div>`;
+    setHtml(elements.phasePanel, `<h2>Investor Terbaik: ${escapeHtml(scores[0]?.name || '—')}</h2><p class="phase-copy">Skor akhir = koin + nilai saham − utang.</p><div class="status-list num">${scores.map((score, index) => `<div class="status-item"><span>#${index + 1} · ${escapeHtml(score.name)} (${score.coins} + ${score.shareValue} − ${score.debt})</span><strong>${score.total}</strong></div>`).join('')}</div>`);
   }
 }
 
@@ -593,10 +626,12 @@ function renderGame() {
   renderMarket();
   renderPlayers();
   renderPortfolioDashboard();
+  const formState = captureFormState(elements.phasePanel);
   if (game.phase === 'bidding') renderBidding();
   else if (game.phase === 'action') renderAction();
   else if (game.phase === 'sell') renderSale();
   else renderEconomy();
+  restoreFormState(elements.phasePanel, formState);
 }
 
 async function handleRoomForm(event) {
