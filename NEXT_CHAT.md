@@ -12,30 +12,26 @@ Dokumen ini melengkapi README: gunakan README untuk setup/deploy umum, dan file 
 - Cloudflare Pages project: `stocklab-online`; deployment production branch yang digunakan sebelumnya `STOCKLAB`; ada juga preview alias `main.stocklab-online.pages.dev`.
 - Firebase project: `projecttestingstocklab`; konfigurasi lokal berada di `.env` (ignored, jangan dibaca/cetak/commit atau meminta user mengirimkannya).
 
-## Status Git terkini
+## Status Git terkini (redesign UI/UX)
 
-Pada saat catatan ini dibuat:
-
-- HEAD lokal: `25841a4` — `Tampilkan kartu aksi saat bidding dan dashboard portofolio semua pemain`
-- `origin/main` masih di `f3af42b`; artinya ada **1 commit lokal belum dipush**.
-- Commit `25841a4` juga **belum dideploy ke Cloudflare**. Production yang live saat ini tidak memiliki perubahan tersebut.
-- Working tree bersih setelah commit.
-- Jangan push/deploy sebelum memahami dan mempertahankan commit lokal ini.
-
-Perubahan di `25841a4`:
-1. Kartu aksi ronde dibagikan di awal ronde dan preview ringkasnya tampil selama bidding.
-2. Dashboard portofolio bersama menampilkan saham per pemain, nilai saham dan total beredar.
-3. Tes/build baru saja dijalankan setelah perubahan tersebut: `npm test` **19/19 lulus**, `npm run build` berhasil. Belum ada tes UI/browser khusus untuk fitur baru.
+- Cabang kerja: `desain-ui-ux` (dari `main`), **15 commit lokal, belum dipush, belum dideploy**.
+- `main` = `origin/main` = `71e93e9` (tidak diubah oleh redesign).
+- Tahap 9 (Web Awesome / `<dialog>`) sengaja dilewati. Tahap 10 (uji perangkat nyata) belum dilakukan: lihat checklist di bagian bawah.
+- Hanya tampilan dan siklus hidup UI yang berubah. `game-engine.js`, `room-service.js`, `firebase.js`, dan rules tidak disentuh. `.env` tidak dibaca.
+- `npm test` **25/25 lulus** (20 engine + 5 `lifecycle`), `npm run build` berhasil (CSS 21,9 kB, JS 398 kB).
 
 ## Arsitektur
 
 - `src/index.html` — markup aplikasi.
+- `src/tokens.css` — design token (terang + gelap); `src/styles.css` — aturan komponen. Keduanya dimuat lewat `<link>` di index.html.
+- `src/lifecycle.js` — logika murni siklus hidup UI (Wake Lock, banner, Kembali, beforeunload), diuji di `tests/lifecycle.test.js`.
+- `src/public/` — manifest, ikon, dan font self-host (root Vite adalah `src/`, bukan root repo).
 - `src/main.js` — UI, room subscriptions, moderator dan peserta.
 - `src/game-engine.js` — aturan/efek kartu dan transisi fase.
 - `src/room-service.js` — Firebase Realtime Database access.
 - `src/firebase.js` — inisialisasi Firebase dari `VITE_FIREBASE_*`.
 - `firebase.database.rules.json` — rules yang dipasang melalui Firebase Console.
-- `tests/game-engine.test.js` — tes deterministik engine (saat ini 19).
+- `tests/game-engine.test.js` — tes deterministik engine (20 tes) dan `tests/lifecycle.test.js` (5 tes).
 - `README.md` — instruksi setup lokal, Firebase, dan Cloudflare Pages.
 
 ## Perilaku / batasan penting
@@ -52,17 +48,16 @@ Perubahan di `25841a4`:
 
 Jalankan dari root project:
 
-- `npm test` — terakhir 19/19 pass.
+- `npm test` — terakhir 25/25 pass.
 - `npm run build` — terakhir berhasil.
 
 Tes mencakup 5 action cards, 18 economy-card types, split/crash keempat sector tracks, Resesi, Stimulus, Restructuring, Tax Amnesty, World Oil + Merger, pinjaman, pungutan, serta satu simulasi enam ronde.
 
 ## Saran langkah berikutnya
 
-1. Lanjutkan dari commit lokal `25841a4`; jangan checkout/reset ke `origin/main`.
-2. Uji melalui browser sebagai beberapa peserta: pastikan semua klien menerima kartu aksi sebelum bidding, kartu yang ditampilkan sesuai pool yang diambil setelah bidding, lalu dashboard menunjukkan nilai holdings aktual setelah tiap aksi/jual/fase ekonomi.
-3. Jika lolos, push commit lokal ke GitHub.
-4. Deploy build yang sama ke Cloudflare production `STOCKLAB` dan preview alias `main` bila masih digunakan.
-5. Verifikasi production tampil preview kartu bidding/dashboard dan Firebase berstatus connected.
+1. Uji `desain-ui-ux` di perangkat nyata (checklist di DESIGN_SYSTEM.md bagian 12.3). Hal yang **belum diverifikasi di perangkat**: keyboard virtual, safe area/`dvh`, Wake Lock, Split View iPad, sambung ulang setelah layar terkunci, tombol Kembali, dan uji 3 perangkat serentak.
+2. Layar lobby/game asli belum pernah diperiksa lewat tangkapan layar (tanpa `.env`); hanya halaman tiruan.
+3. Putuskan A1 (merek koral vs warna harga turun) setelah melihat ▲/▼ di perangkat.
+4. Jika lolos: gabungkan ke `main`, baru push dan deploy (Cloudflare Pages `stocklab-online`). Jangan deploy sebelum uji perangkat.
 
 Jangan tulis API key, credential, token, isi `.env`, atau secret ke file handoff ini.

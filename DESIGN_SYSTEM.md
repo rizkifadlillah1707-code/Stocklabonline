@@ -250,7 +250,7 @@ Urutan dibuat agar tiap tahap bisa di-commit dan diuji sendiri.
 | 9 | (Opsional) Dialog dan toast memakai Web Awesome / `<dialog>` native. | `main.js` | Sedang |
 | 10 | Uji manual di 360×640, 390×844, 768, 1280 (light dan dark), plus uji simulasi buta warna di DevTools. | — | — |
 
-Cek selesai tiap tahap: `npm test` (19 tes engine) dan `npm run build` harus tetap lulus. Belum ada tes UI/browser, jadi tahap 5–7 perlu diuji manual dengan dua perangkat atau lebih.
+Cek selesai tiap tahap: `npm test` (20 tes engine + 5 tes lifecycle) dan `npm run build` harus tetap lulus. Belum ada tes UI/browser, jadi tahap 5–7 perlu diuji manual dengan dua perangkat atau lebih.
 
 ### Yang sengaja tidak dilakukan
 - Tidak memakai MUI, shadcn, atau Chakra (berbasis React, butuh penulisan ulang total).
@@ -605,3 +605,53 @@ Tautan produk komersial sengaja tidak dicantumkan karena tampilannya berubah. Ca
 - **Tema:** simpan pilihan tema di `localStorage` dengan `try/catch` (bisa gagal di mode privat). Default mengikuti sistem.
 - **Pengujian visual:** sebelum dan sesudah tiap tahap, ambil tangkapan layar 4 ukuran layar × 2 tema untuk perbandingan.
 - **Pembaruan dokumen:** kalau nilai token berubah, perbarui tabel di bagian 4 agar dokumen ini tetap menjadi sumber acuan.
+
+---
+
+## 12. Hasil penerapan
+
+### 12.1 Perbedaan dari usulan awal
+- Token tambahan di `src/tokens.css` di luar tabel 4.1: `--surface-glass*`, `--line-soft`, `--line-strong`, `--brand-ink`, `--brand-line*`, `--up-ink/line/dot`, `--danger-ink`, `--glow-warm/cool`, `--shadow-card-lite`, `--shadow-toast`, `--shadow-tab`. Nilai gelapnya ada di tokens.css.
+- `--radius-pill` bernilai `99px` (bukan `999px`); hasil visual sama.
+- `--subtle` dan `--placeholder` dihapus; keduanya memakai `--faint` (#7d6b65).
+- Warna selain `--brand`, `--faint`, `--muted`, `--up`, `--down`, `--flat`, `--danger` mengikuti tabel 4.1 tanpa perubahan.
+- Folder `public/` berada di `src/public/` karena root Vite adalah `src/`.
+- Font DM Sans (variabel 400–700) dan IBM Plex Mono (400/500/600/700) di-host sendiri, subset Latin; lisensi SIL OFL ada di `src/public/fonts/`.
+- Tahap 9 dilewati.
+
+### 12.2 Status temuan A1–A13
+
+| # | Status | Keterangan |
+|---|---|---|
+| A1 | Sebagian | Token `--brand` dan `--down` terpisah, error memakai `--danger`. Namun #c22233 dan #c4302b hampir sama (jarak RGB 16/441); pembeda utama kini tanda ▲/▼. Evaluasi di perangkat. |
+| A2 | Selesai | `--faint` #7d6b65: 4,58–5,04:1 |
+| A3 | Selesai | Placeholder dan `.feature-row` memakai `--faint` (≥4,78:1) |
+| A4 | Selesai | Tombol dan teks merek 5,88:1 |
+| A5 | Selesai | `--up` #1e7a52: 5,30:1 |
+| A6 | Selesai | Tidak ada teks di bawah 12 px (dipindai di Chromium, 360/744/1280 px) |
+| A7 | Selesai | ▲/▼/– beserta `aria-label`. Arah dihitung di perangkat dari harga terakhir yang dilihat; setelah muat ulang tampil "– 0" sampai harga berubah. |
+| A8 | Selesai | Kelas `.num` (`tabular-nums`) pada harga, tabel, tawaran, skor |
+| A9 | Selesai | `prefers-color-scheme` + `data-theme` + tombol ganti tema (disimpan di localStorage) |
+| A10 | Selesai | 0 hex hardcode tersisa di styles.css dan main.js |
+| A11 | Tidak berlaku | Prototipe root tidak diubah (batasan) |
+| A12 | Selesai | Toast di bawah, lebar penuh di ponsel, safe-area. Belum diverifikasi di perangkat. |
+| A13 | Selesai | Strip pasar 2+3 kolom di ponsel, 5 kolom di ≥640 px |
+
+Belum dikerjakan (di luar daftar tahap): dashboard `<details>` terlipat di ponsel, dialog konfirmasi alat moderator, ikon/durasi toast per jenis, tombol "Tersalin ✓", syarat "Minimal 3 pemain", skeleton, tombol "Coba lagi" di layar error, navigasi panah antar tab beranda.
+
+### 12.3 Checklist uji perangkat (belum diverifikasi di perangkat)
+Kriteria lulus (9.5): tidak ada scroll horizontal di 320–1376 px, tidak ada konten tertutup poni/bar gestur/keyboard, tidak ada zoom otomatis di input, pemain pulih dalam 5 detik setelah kembali dari latar belakang.
+
+| Perangkat | Langkah | Hasil yang diharapkan |
+|---|---|---|
+| Android Chrome | Ketuk kolom tawaran | Keyboard angka; kolom dan tombol "Kunci tawaran" tetap terlihat; halaman tidak membesar |
+| Android Chrome | Putar ke lanskap | Topbar dan padding lebih ringkas; panel fase terlihat |
+| Android Chrome | Tombol Kembali di lobby dan game | Muncul konfirmasi; tidak langsung keluar aplikasi |
+| Android Chrome | Kunci layar 30 detik, buka lagi | Banner "Menyambungkan ulang…" lalu hilang; state sama; pulih ≤5 detik |
+| Safari iPad | Ketuk kolom tawaran dan kode room | Tidak ada zoom otomatis; keyboard tidak menutup tombol kirim |
+| Safari iPad | Potret (820/834) dan lanskap (1180) | Potret satu kolom maks 720 px; lanskap dua kolom; tanpa scroll horizontal |
+| Safari iPad | Split View 1/3 dan 1/2 | Tata letak mengikuti lebar jendela; tabel tetap terbaca |
+| Safari iPad | Pasang ke Layar Utama | Ikon "S" koral, nama StockLab, tanpa bar alamat |
+| Semua | Fase aktif 2 menit tanpa menyentuh layar | Layar tidak mati (Wake Lock); di lobby layar boleh mati |
+| Semua | Ganti tema, muat ulang | Pilihan tersimpan; tanpa pilihan, mengikuti sistem |
+| 3 perangkat (iPad moderator + 2 Android) | Main 1 ronde penuh | Tawaran, aksi, jual, ekonomi sinkron; ▲/▼ sesuai; moderator menutup tab → peringatan muncul |
