@@ -138,7 +138,15 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
 @media (max-width: 850px) {
   .hero-grid { grid-template-columns: minmax(0, 1fr) minmax(300px, .9fr); gap: 30px; }
   .game-layout { grid-template-columns: 1fr; }
-  .game-sidebar { order: -1; }
+  /* Urutan ponsel: pasar, aksi, pesan, portofolio saya, semua pemain */
+  .game-main { display: contents; }
+  .market-strip { order: 1; }
+  .phase-panel { order: 2; }
+  .status-message { order: 3; }
+  .game-sidebar { order: 4; }
+  .dashboard-panel { order: 5; }
+  .game-layout { gap: 16px; }
+  .market-strip, .dashboard-panel { margin: 0; }
   .game-players { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); }
   .host-tools { display: flex; gap: 8px; }
   .host-tools .button { flex: 1; }
@@ -161,7 +169,11 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
   .share-box { align-items: stretch; flex-direction: column; }
   .share-box span { padding: 5px; }
   .game-topline { align-items: flex-start; flex-direction: column; }
-  .market-strip { grid-template-columns: repeat(5, minmax(100px, 1fr)); }
+  .market-strip { grid-template-columns: repeat(6, 1fr); overflow-x: visible; }
+  .market-tile { grid-column: span 2; }
+  .market-tile:nth-child(-n+2) { grid-column: span 3; }
+  .toast-region { right: 14px; bottom: max(14px, env(safe-area-inset-bottom)); left: 14px; }
+  .toast { max-width: none; }
   .host-tools { flex-direction: column; }
   .phase-controls input, .phase-controls select { flex: 1; min-width: 0; }
   .bid-form input { width: 100%; }
@@ -196,3 +208,7 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
 .dot { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 50%; background: var(--flat); }
 .dot-up { background: var(--up); }
 .dot-down { background: var(--danger); }
+
+/* Kolom nama tabel menempel saat tabel bergulir (tahap 6) */
+.portfolio-table thead th:first-child, .portfolio-table tbody th, .portfolio-table tfoot th { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+.portfolio-table tr.me th { background: var(--surface-sunken); }
