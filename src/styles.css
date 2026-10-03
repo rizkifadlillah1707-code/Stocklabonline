@@ -135,6 +135,9 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
 
 @media (max-width: 850px) {
   .hero-grid { grid-template-columns: minmax(0, 1fr) minmax(300px, .9fr); gap: 30px; }
+}
+/* Game satu kolom: lebar <= 850 px, atau tablet potret sampai 1023 px (tahap 7d) */
+@media (max-width: 850px), (max-width: 1023px) and (orientation: portrait) {
   .game-layout { grid-template-columns: 1fr; }
   /* Urutan ponsel: pasar, aksi, pesan, portofolio saya, semua pemain */
   .game-main { display: contents; }
@@ -239,3 +242,35 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
 /* Petunjuk dan pesan error kolom tawaran (tahap 7c) */
 .field-hint { flex-basis: 100%; margin: -4px 0 0; color: var(--muted); font-size: var(--text-xs); }
 .bid-form .field-error { flex-basis: 100%; margin: 0; }
+
+/* Tablet (tahap 7d): lebar baca, container query, tanpa scroll horizontal */
+.phase-copy { max-width: 60ch; }
+.phase-panel { container: phase / inline-size; }
+.dashboard-panel { container: dash / inline-size; }
+.game-sidebar { container: side / inline-size; }
+@container phase (max-width: 480px) {
+  .bid-form input, .bid-form .button { width: 100%; }
+  .phase-controls input, .phase-controls select { flex: 1; min-width: 0; }
+}
+@container dash (max-width: 520px) {
+  .portfolio-table th, .portfolio-table td { padding: 6px; }
+}
+@container side (max-width: 340px) {
+  .game-players { grid-template-columns: 1fr; }
+}
+@media (min-width: 640px) and (max-width: 1023px) and (orientation: portrait) {
+  .market-strip, .phase-panel, .status-message, .game-sidebar, .dashboard-panel { width: 100%; max-width: 720px; justify-self: center; }
+  .game-players { grid-template-columns: repeat(2, 1fr); }
+  .portfolio-table th, .portfolio-table td { padding: 10px 14px; }
+}
+@media (orientation: landscape) and (min-width: 768px) and (max-width: 850px) {
+  .game-layout { grid-template-columns: minmax(0, 1fr) 285px; gap: 20px; }
+  .game-main { display: block; }
+  .market-strip { margin-bottom: 16px; }
+  .dashboard-panel { margin-top: 16px; }
+  .game-players { grid-template-columns: 1fr; }
+  .host-tools { display: block; }
+}
+@media (min-width: 640px) and (max-width: 1180px) and (pointer: coarse) {
+  html { font-size: clamp(16px, 1.1vw + 12px, 18px); }
+}
