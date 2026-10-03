@@ -100,6 +100,26 @@ function toast(message, isError = false) {
   window.setTimeout(() => item.remove(), 3800);
 }
 
+// Cegah klik ganda: tombol dikunci dan berlabel "Memproses…" selama aksi berjalan.
+// `delayRestore`: aksi pemain baru diterapkan moderator setelah terkirim, jadi tombol dibuka lagi setelah jeda singkat.
+async function withBusy(button, task, delayRestore = 0) {
+  if (!button || button.disabled) return;
+  const label = button.innerHTML;
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  button.textContent = 'Memproses…';
+  let ok = true;
+  try { ok = (await task()) !== false; } finally {
+    const restore = () => {
+      if (!button.isConnected) return;
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.innerHTML = label;
+    };
+    if (delayRestore && ok) window.setTimeout(restore, delayRestore); else restore();
+  }
+}
+
 function showHomeError(message) {
   elements.homeError.textContent = message;
   elements.homeError.hidden = !message;
@@ -308,12 +328,14 @@ async function processCommand(uid, commandId, command) {
 }
 
 async function submitPlayerCommand(type, payload) {
-  if (!roomCode || !user) return;
+  if (!roomCode || !user) return false;
   try {
     await sendCommand(db, roomCode, user.uid, type, payload);
     toast('Aksi dikirim. Menunggu pembaruan room…');
+    return true;
   } catch (error) {
     toast(error.message, true);
+    return false;
   }
 }
 
@@ -402,14 +424,14 @@ function renderPlayers() {
   const currentIsOffline = current && roomData?.presence?.[current.uid]?.online === false;
   elements.hostTools.hidden = !isHost || !currentIsOffline || !['action', 'sell'].includes(game.phase);
   elements.hostTools.innerHTML = elements.hostTools.hidden ? '' : '<button class="button button-secondary" id="btn-skip-turn" type="button">Lewati giliran pemain offline</button>';
-  $('#btn-skip-turn')?.addEventListener('click', async () => {
+  $('#btn-skip-turn')?.addEventListener('click', (event) => withBusy(event.currentTarget, async () => {
     try {
       const nextGame = structuredClone(fullGame);
       skipCurrentTurn(nextGame);
       fullGame = nextGame;
       await publishGameState(db, roomCode, nextGame);
     } catch (error) { toast(error.message, true); }
-  });
+  }));
 }
 
 function renderPoolPreview() {
@@ -463,15 +485,17 @@ function renderBidding() {
       return;
     }
     bidError.hidden = true;
-    try {
-      await submitBid(db, roomCode, user.uid, game.round, amount);
-      ownBid = { round: game.round, bid: amount };
-      renderGame();
-      toast('Tawaran terkunci secara rahasia.');
-    } catch (error) { toast(error.message, true); }
+    await withBusy(event.submitter, async () => {
+      try {
+        await submitBid(db, roomCode, user.uid, game.round, amount);
+        ownBid = { round: game.round, bid: amount };
+        renderGame();
+        toast('Tawaran terkunci secara rahasia.');
+      } catch (error) { toast(error.message, true); }
+    });
   });
-  $('#btn-loan')?.addEventListener('click', () => submitPlayerCommand('loan'));
-  $('#btn-reveal-bids')?.addEventListener('click', revealBids);
+  $('#btn-loan')?.addEventListener('click', (event) => withBusy(event.currentTarget, () => submitPlayerCommand('loan'), 2500));
+  $('#btn-reveal-bids')?.addEventListener('click', (event) => withBusy(event.currentTarget, revealBids));
 }
 
 function actionEffectForm(card) {
@@ -501,12 +525,12 @@ function renderAction() {
   const choice = selected && isMyTurn ? `<div class="choice-panel"><h3>${escapeHtml(ACTION_LABELS[selected.effect])} · ${escapeHtml(SECTOR_NAMES[selected.theme])}</h3><div class="phase-controls"><button class="button button-secondary" id="btn-save-card">Simpan jadi saham</button><button class="button button-primary" id="btn-activate-card">Aktifkan efek</button></div><div id="effect-form" hidden></div></div>` : '';
   elements.phasePanel.innerHTML = `<h2>Fase Aksi · Ronde ${game.round}</h2><p class="phase-copy">${message} Tersisa ${game.pool.length} kartu. Simpan kartu sebagai saham atau aktifkan efeknya.</p><div class="card-options">${cards}</div>${choice}`;
   elements.phasePanel.querySelectorAll('[data-card-id]').forEach((button) => button.addEventListener('click', () => { selectedCardId = button.dataset.cardId; renderGame(); }));
-  $('#btn-save-card')?.addEventListener('click', () => submitPlayerCommand('action', { cardId: selectedCardId, mode: 'save' }));
+  $('#btn-save-card')?.addEventListener('click', (event) => withBusy(event.currentTarget, () => submitPlayerCommand('action', { cardId: selectedCardId, mode: 'save' }), 2500));
   $('#btn-activate-card')?.addEventListener('click', () => {
     const container = $('#effect-form');
     container.hidden = false;
     container.innerHTML = `${actionEffectForm(selected)}<button class="button button-primary" id="btn-confirm-effect" type="button">Konfirmasi efek</button>`;
-    $('#btn-confirm-effect').addEventListener('click', () => {
+    $('#btn-confirm-effect').addEventListener('click', (event) => {
       const effectData = {};
       if (selected.effect === 'info') effectData.sectors = Array.from($('#effect-info-sectors').selectedOptions).map((option) => option.value);
       if (selected.effect === 'rumor') {
@@ -516,7 +540,7 @@ function renderAction() {
       if (selected.effect === 'quickbuy') effectData.additionalIds = Array.from($('#effect-quickbuy').selectedOptions).slice(0, 2).map((option) => option.value);
       if (selected.effect === 'fee') { effectData.sector = $('#effect-sector').value; effectData.quantity = Number($('#effect-quantity').value || 0); }
       if (selected.effect === 'akuisisi') { const [targetUid, sector] = ($('#effect-target')?.value || '').split('|'); effectData.targetUid = targetUid; effectData.sector = sector; }
-      submitPlayerCommand('action', { cardId: selectedCardId, mode: 'activate', effectData });
+      withBusy(event.currentTarget, () => submitPlayerCommand('action', { cardId: selectedCardId, mode: 'activate', effectData }), 2500);
     });
   });
 }
@@ -532,9 +556,9 @@ function renderSale() {
   elements.phasePanel.innerHTML = `<h2>Fase Jual · Ronde ${game.round}</h2><p class="phase-copy">${isMyTurn ? 'Jual satu jenis saham dalam jumlah yang diinginkan, atau lewati.' : `Pemain saat ini: ${escapeHtml(player?.name || '')}.`}</p>${controls}`;
   $('#sale-form')?.addEventListener('submit', (event) => {
     event.preventDefault();
-    submitPlayerCommand('sell', { sectorId: $('#sale-sector').value, quantity: Number($('#sale-quantity').value) });
+    withBusy(event.submitter, () => submitPlayerCommand('sell', { sectorId: $('#sale-sector').value, quantity: Number($('#sale-quantity').value) }), 2500);
   });
-  $('#btn-skip-sale')?.addEventListener('click', () => submitPlayerCommand('sell', {}));
+  $('#btn-skip-sale')?.addEventListener('click', (event) => withBusy(event.currentTarget, () => submitPlayerCommand('sell', {}), 2500));
   $('#sale-sector')?.addEventListener('change', () => {
     const sector = $('#sale-sector').value;
     $('#sale-quantity').max = String(player.holdings[sector]);
@@ -547,10 +571,10 @@ function renderEconomy() {
   const cards = game.lastEconomyCards?.length ? `<div class="status-list num">${game.lastEconomyCards.map((card) => `<div class="status-item"><span>${escapeHtml(card.sectorName)}</span><strong>${escapeHtml(card.label)}</strong></div>`).join('')}</div>` : '';
   if (game.phase === 'economy') {
     elements.phasePanel.innerHTML = `<h2>Semua pemain selesai menjual</h2><p class="phase-copy">Moderator membuka Kartu Ekonomi untuk menggerakkan seluruh sektor.</p>${isHost ? '<button class="button button-primary" id="btn-run-economy">Buka Kartu Ekonomi →</button>' : '<div class="status-item"><strong>Menunggu moderator</strong><span>Harga akan diperbarui serentak.</span></div>'}`;
-    $('#btn-run-economy')?.addEventListener('click', runEconomy);
+    $('#btn-run-economy')?.addEventListener('click', (event) => withBusy(event.currentTarget, runEconomy));
   } else if (game.phase === 'between') {
     elements.phasePanel.innerHTML = `<h2>Ringkasan Ekonomi · Ronde ${game.round}</h2><p class="phase-copy">${game.lastMessage}</p>${cards}${log}${isHost ? '<button class="button button-primary" id="btn-next-round">Mulai ronde berikutnya →</button>' : '<div class="status-item"><strong>Menunggu moderator</strong><span>Ronde berikutnya segera dimulai.</span></div>'}`;
-    $('#btn-next-round')?.addEventListener('click', nextRound);
+    $('#btn-next-round')?.addEventListener('click', (event) => withBusy(event.currentTarget, nextRound));
   } else {
     const scores = game.publicScores || [];
     elements.phasePanel.innerHTML = `<h2>Investor Terbaik: ${escapeHtml(scores[0]?.name || '—')}</h2><p class="phase-copy">Skor akhir = koin + nilai saham − utang.</p><div class="status-list num">${scores.map((score, index) => `<div class="status-item"><span>#${index + 1} · ${escapeHtml(score.name)} (${score.coins} + ${score.shareValue} − ${score.debt})</span><strong>${score.total}</strong></div>`).join('')}</div>`;
@@ -670,7 +694,7 @@ if (window.matchMedia('(pointer: coarse)').matches) {
 elements.createTab.addEventListener('click', () => setMode('create'));
 elements.joinTab.addEventListener('click', () => setMode('join'));
 elements.roomForm.addEventListener('submit', handleRoomForm);
-elements.startGame.addEventListener('click', startGame);
+elements.startGame.addEventListener('click', (event) => withBusy(event.currentTarget, startGame));
 elements.leaveRoom.addEventListener('click', exitRoom);
 elements.copyLink.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(elements.shareUrl.textContent); toast('Tautan room disalin.'); }
