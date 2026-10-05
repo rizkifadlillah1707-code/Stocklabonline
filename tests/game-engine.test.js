@@ -5,11 +5,13 @@ import {
   applySale,
   createGame,
   currentPlayer,
+  debtPackageOptions,
   finalScores,
   requestLoan,
   resolveBids,
   resolveEconomy,
-  startNextRound
+  startNextRound,
+  takeDebtPackage
 } from '../src/game-engine.js';
 
 function setupGame() {
@@ -265,15 +267,15 @@ test('all 18 Economy card types have their intended base movement and side effec
     }
     if (key === 'extrafee') {
       assert.equal(game.players.find((player) => player.uid === 'a').coins, 0);
-      assert.equal(game.players.find((player) => player.uid === 'b').coins, 0);
+      assert.equal(game.players.find((player) => player.uid === 'b').coins, -1, 'saldo kurang menjadi minus');
     }
     if (key === 'penerbitan') {
       assert.equal(game.players.find((player) => player.uid === 'a').holdings.tambang, 3);
       assert.equal(game.players.find((player) => player.uid === 'b').holdings.tambang, 2);
     }
     if (key === 'pajak') {
-      assert.equal(game.players.find((player) => player.uid === 'b').coins, 0);
-      assert.equal(game.players.find((player) => player.uid === 'a').coins, 0);
+      assert.equal(game.players.find((player) => player.uid === 'b').coins, -1, 'urutan 1 membayar 1 koin dari saldo 0');
+      assert.equal(game.players.find((player) => player.uid === 'a').coins, 0, 'urutan 2 membayar 2 koin dari saldo 2');
     }
     if (key === 'worldoil') assert.equal(game.sectors.find((sector) => sector.id === 'tambang').price, 6);
     if (key === 'restrukturisasi') assert.ok(game.sectors.every((sector) => sector.price === 5));
@@ -388,7 +390,7 @@ test('Merger follows its right neighbor movement, including World Oil drawn on T
   assert.equal(game.sectors.find((sector) => sector.id === 'konsumer').price, 6);
 });
 
-test('loans, taxes, fees, and final scoring never create a zero-price asset or negative cash', () => {
+test('loans and final scoring never create a zero-price asset; a loan costs 13 points', () => {
   const game = setupGame();
   requestLoan(game, 'a');
   assert.equal(game.players.find((player) => player.uid === 'a').coins, 25);
@@ -437,4 +439,77 @@ test('action cards are dealt at round start and visible during bidding', () => {
   startNextRound(game);
   assert.equal(game.phase, 'bidding');
   assert.equal(game.pool.length, game.players.length * 2);
+});
+
+test('Trading Fee with an empty balance goes negative instead of being free', () => {
+  const game = setupGame();
+  game.phase = 'action';
+  game.pool = [{ id: 'fee', theme: 'keuangan', effect: 'fee' }];
+  setCoins(game, 'a', 0);
+  setHolding(game, 'a', 'keuangan', 2);
+  applyAction(game, 'a', { cardId: 'fee', mode: 'activate', effectData: {} });
+  assert.equal(game.players.find((player) => player.uid === 'a').coins, -3, 'biaya 1 + 2 saham keuangan');
+});
+
+test('Trading Fee proceeds from selling can offset the fee within the same action', () => {
+  const game = setupGame();
+  game.phase = 'action';
+  game.pool = [{ id: 'fee', theme: 'keuangan', effect: 'fee' }];
+  setCoins(game, 'a', 0);
+  setHolding(game, 'a', 'tambang', 1);
+  game.sectors.find((sector) => sector.id === 'tambang').price = 5;
+  applyAction(game, 'a', { cardId: 'fee', mode: 'activate', effectData: { sector: 'tambang', quantity: 1 } });
+  assert.equal(game.players.find((player) => player.uid === 'a').coins, 4, '0 - 1 + 5');
+});
+
+test('debt package options start at the cheapest package that covers the shortfall', () => {
+  assert.deepEqual(debtPackageOptions(0, 5), []);
+  assert.deepEqual(debtPackageOptions(5, 5), []);
+  assert.deepEqual(debtPackageOptions(-1, 5), [1, 2, 3]);
+  assert.deepEqual(debtPackageOptions(-10, 5), [1, 2, 3]);
+  assert.deepEqual(debtPackageOptions(-11, 5), [2, 3, 4]);
+  assert.deepEqual(debtPackageOptions(-25, 5), [3, 4, 5]);
+  assert.deepEqual(debtPackageOptions(-3, 2), [1, 2], 'dibatasi sisa kartu utang');
+  assert.deepEqual(debtPackageOptions(-45, 2), [2], 'sisa kartu tidak cukup: tawarkan semuanya');
+  assert.deepEqual(debtPackageOptions(-3, 0), [], 'kartu utang habis: tidak ada paket');
+});
+
+test('taking a debt package adds 10 coins and one debt card per card, and only when the balance is negative', () => {
+  const game = setupGame();
+  setCoins(game, 'a', -4);
+  takeDebtPackage(game, 'a', 2);
+  const player = game.players.find((item) => item.uid === 'a');
+  assert.equal(player.coins, 16);
+  assert.equal(player.utang, 2);
+  assert.equal(game.utangRemaining, 3);
+  assert.equal(finalScores(game).find((score) => score.uid === 'a').debt, 26);
+  assert.throws(() => takeDebtPackage(game, 'a', 1), /tidak minus/);
+  setCoins(game, 'b', -1);
+  assert.throws(() => takeDebtPackage(game, 'b', 0), /tidak valid/);
+  assert.throws(() => takeDebtPackage(game, 'b', 4), /tidak valid/, 'melebihi sisa kartu utang');
+  assert.equal(game.utangRemaining, 3, 'perintah gagal tidak mengubah state');
+});
+
+test('a player with a negative balance can only bid zero, and a still-negative balance counts in the final score', () => {
+  const game = setupGame();
+  setCoins(game, 'a', -2);
+  const bids = Object.fromEntries(game.players.map((player) => [player.uid, { round: game.round, bid: player.uid === 'a' ? 0 : 1 }]));
+  resolveBids(game, bids);
+  assert.equal(game.players.find((player) => player.uid === 'a').coins, -2);
+  const again = setupGame();
+  setCoins(again, 'a', -2);
+  const invalid = Object.fromEntries(again.players.map((player) => [player.uid, { round: again.round, bid: 1 }]));
+  assert.throws(() => resolveBids(again, invalid), /tidak valid/);
+  assert.equal(finalScores(game).find((score) => score.uid === 'a').total, -2);
+});
+
+test('Merger on the last sector follows the first sector (ring order)', () => {
+  const game = setupEconomy({
+    tambang: economyCard('naik', 'Naik', 1),
+    agrikultur: economyCard('merger', 'Merger', 0, 'merger')
+  });
+  game.sectors = ['tambang', 'konsumer', 'keuangan', 'agrikultur'].map((id) => game.sectors.find((sector) => sector.id === id));
+  resolveEconomy(game);
+  assert.equal(game.sectors.find((sector) => sector.id === 'tambang').price, 6);
+  assert.equal(game.sectors.find((sector) => sector.id === 'agrikultur').price, 6, 'agrikultur mengikuti langkah tambang');
 });

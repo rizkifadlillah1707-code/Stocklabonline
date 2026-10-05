@@ -41,7 +41,7 @@ Dokumen ini melengkapi README: gunakan README untuk setup/deploy umum, dan file 
 - Room 3–5 pemain; beberapa room dapat berjalan bersamaan.
 - Firebase Spark Realtime Database membatasi 100 koneksi simultan seluruh project.
 - Moderator browser adalah otoritas state dan harus tetap aktif selama permainan. Ini MVP untuk demo/kelas dengan moderator tepercaya, bukan backend anti-cheat.
-- Engine tidak memiliki mekanik pailit/eliminasi. Pungutan/biaya tidak membuat saldo negatif; uang dipotong maksimal sampai 0. Utang kartu mengurangi skor akhir 13 per kartu.
+- Engine tidak memiliki eliminasi pemain. Biaya (Trading Fee, Extra Fee, Pajak Jalan) boleh membuat saldo minus; pemain lalu memilih paket kartu utang lewat popup (10 koin per kartu, dilunasi 13 di skor akhir, maksimal 5 kartu per permainan). Pemain bersaldo minus hanya bisa menawar 0. Saldo yang tetap minus (kartu utang habis) mengurangi skor akhir. Pajak Jalan = urutan bidding ronde itu (1 sampai N koin). Merger sektor terakhir mengikuti sektor pertama (melingkar). Crash/Split mengikuti aturan: turun melewati dasar tangga = semua saham pemain ditarik; naik melewati puncak = saham yang sudah dimiliki ×2; harga kembali ke 5.
 - Harga saham memakai tangga harga positif; tidak ada path untuk harga 0. Crash menghapus holdings dan reset ke 5 saat melampaui dasar; Split menggandakan holdings dan reset ke 5 saat melewati puncak.
 - Informasi kartu ekonomi privat dari Info Bursa dikirim ke pemain pemilih.
 - Economy rules tertentu mungkin perlu diverifikasi dengan rulebook cetak, terutama definisi Merger/World Oil/Tax Amnesty dan kapan crash/split terjadi.

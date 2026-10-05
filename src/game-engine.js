@@ -124,13 +124,38 @@ export function requestLoan(game, uid) {
   return game;
 }
 
+// Saldo boleh minus (biaya yang tidak tertutup); selisihnya ditutup dengan paket kartu utang: 10 koin per kartu, dilunasi 13 di skor akhir.
+export const DEBT_CARD_COINS = 10;
+export const DEBT_CARD_PENALTY = 13;
+
+// Paket yang ditawarkan: dari jumlah kartu minimum yang menutup kekurangan, sampai 2 kartu lebih banyak (dibatasi sisa kartu utang).
+export function debtPackageOptions(coins, remaining) {
+  if (!(coins < 0) || !(remaining > 0)) return [];
+  const needed = Math.ceil(-coins / DEBT_CARD_COINS);
+  const first = Math.min(needed, remaining);
+  const last = Math.min(remaining, first + 2);
+  return Array.from({ length: last - first + 1 }, (_, index) => first + index);
+}
+
+export function takeDebtPackage(game, uid, count) {
+  const player = playerByUid(game, uid);
+  assert(player, 'Pemain tidak ditemukan.');
+  assert(player.coins < 0, 'Saldo Anda tidak minus.');
+  assert(Number.isInteger(count) && count >= 1 && count <= game.utangRemaining, 'Paket hutang tidak valid atau kartu utang tidak cukup.');
+  player.coins += DEBT_CARD_COINS * count;
+  player.utang += count;
+  game.utangRemaining -= count;
+  game.lastMessage = `${player.name} mengambil ${count} kartu utang (${DEBT_CARD_COINS * count} koin).`;
+  return game;
+}
+
 export function resolveBids(game, bids) {
   assert(game.phase === 'bidding', 'Fase bidding sudah berakhir.');
   assert(bidsSubmitted(game, bids) === game.players.length, 'Semua pemain harus mengunci tawaran terlebih dahulu.');
   for (const player of game.players) {
     const amount = Number(bids[player.uid].bid);
     const minimum = player.coins > 0 ? 1 : 0;
-    assert(Number(bids[player.uid].round) === game.round && Number.isInteger(amount) && amount >= minimum && amount <= player.coins, `Tawaran ${player.name} tidak valid.`);
+    assert(Number(bids[player.uid].round) === game.round && Number.isInteger(amount) && amount >= minimum && amount <= Math.max(0, player.coins), `Tawaran ${player.name} tidak valid.`);
   }
   const previousRank = new Map(game.order.map((uid, index) => [uid, index]));
   const ranked = [...game.players].sort((a, b) => {
@@ -201,7 +226,7 @@ function applyActionEffect(game, player, card, data) {
       } else {
         assert(quantity === 0, 'Pilih sektor untuk menjual saham.');
       }
-      player.coins = Math.max(0, player.coins - cost);
+      player.coins -= cost;
       if (sectorId) {
         player.holdings[sectorId] -= quantity;
         player.coins += quantity * sectorPrice(game, sectorId);
@@ -359,11 +384,11 @@ export function resolveEconomy(game) {
       if (card.side === 'dividen') {
         for (const player of game.players) player.coins += player.holdings[sector.id] || 0;
       } else if (card.side === 'extrafee') {
-        for (const player of game.players) player.coins = Math.max(0, player.coins - (player.holdings[sector.id] || 0));
+        for (const player of game.players) player.coins -= player.holdings[sector.id] || 0;
       } else if (card.side === 'penerbitan') {
         for (const player of game.players) if (player.holdings[sector.id] > 0) player.holdings[sector.id] += 1;
       } else if (card.side === 'pajak') {
-        for (const player of game.players) player.coins = Math.max(0, player.coins - (game.order.indexOf(player.uid) + 1));
+        for (const player of game.players) player.coins -= game.order.indexOf(player.uid) + 1;
       } else if (card.side === 'buyback') {
         const price = sector.price;
         for (const player of game.players) {
@@ -383,7 +408,7 @@ export function resolveEconomy(game) {
     for (const item of drawn) {
       if (item.card?.side === 'merger') {
         const index = game.sectors.indexOf(item.sector);
-        const neighbor = game.sectors[index === game.sectors.length - 1 ? index - 1 : index + 1];
+        const neighbor = game.sectors[(index + 1) % game.sectors.length];
         const steps = baseSteps[neighbor.id] || 0;
         moveSector(game, item.sector, steps, log);
         log.push(`${item.sector.name}: Merger mengikuti langkah dasar ${neighbor.name} (${steps}).`);

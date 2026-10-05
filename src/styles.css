@@ -331,3 +331,12 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
 #sale-form select { flex: 1 1 100%; }
 #sale-form input { flex: 1 1 96px; min-width: 96px; }
 #sale-form .button { flex: 1 1 auto; }
+
+/* Popup paket hutang saat saldo minus */
+.debt-dialog { width: min(420px, calc(100vw - 32px)); padding: 24px; border: 1px solid var(--line); border-radius: var(--radius-lg); color: var(--ink); background: var(--surface); box-shadow: var(--shadow-toast); }
+.debt-dialog::backdrop { background: #23130f99; }
+.debt-dialog h2 { margin: 0 0 8px; font-size: var(--text-lg); }
+.debt-dialog p { color: var(--muted); line-height: 1.55; }
+.debt-options { display: grid; gap: 10px; margin: 16px 0 12px; }
+.debt-options .button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
+.debt-penalty { font-size: var(--text-xs); font-weight: 600; opacity: .9; }

@@ -8,6 +8,9 @@ import {
   bidsSubmitted,
   createGame,
   currentPlayer,
+  DEBT_CARD_COINS,
+  DEBT_CARD_PENALTY,
+  debtPackageOptions,
   finalScores,
   playerByUid,
   requestLoan,
@@ -15,7 +18,8 @@ import {
   resolveEconomy,
   skipCurrentTurn,
   sectorPrice,
-  startNextRound
+  startNextRound,
+  takeDebtPackage
 } from './game-engine.js';
 import {
   clearBids,
@@ -137,6 +141,8 @@ function setScreen(screen) {
   if (changed) window.scrollTo({ top: 0, behavior: 'smooth' });
   syncHistory(name);
   syncWakeLock();
+  if (name === 'game') syncDebtDialog();
+  else if (debtDialog.open) debtDialog.close();
 }
 
 // Riwayat: beranda di dasar, lobby/game satu entri di atasnya, supaya Kembali tidak langsung keluar aplikasi.
@@ -340,6 +346,7 @@ function openRoom(code) {
       unsubscribePrivatePlayer = subscribePrivatePlayer(db, code, user.uid, (nextPlayer) => {
         privatePlayer = nextPlayer;
         if (game?.phase === 'bidding') renderGame();
+        syncDebtDialog();
       }, (error) => toast(`Saldo pribadi tidak terbaca: ${error.message}`, true));
     }
     if (!unsubscribePrivateNotice) {
@@ -444,6 +451,7 @@ async function processCommand(uid, commandId, command) {
     const nextGame = structuredClone(fullGame);
     let privateNotice = null;
     if (command.type === 'loan') requestLoan(nextGame, uid);
+    else if (command.type === 'debt') takeDebtPackage(nextGame, uid, Number(command.payload?.count));
     else if (command.type === 'action') {
       const payload = command.payload || {};
       const selectedCard = nextGame.pool.find((card) => card.id === payload.cardId);
@@ -624,11 +632,12 @@ function renderBidding() {
   const submitted = isHost ? bidsSubmitted(game, bids) : ownSubmitted ? 1 : 0;
   const progress = isHost ? `${submitted}/${game.players.length} tawaran terkunci` : 'Tawaran pemain lain dirahasiakan sampai moderator membuka hasil.';
   const minimumBid = coins > 0 ? 1 : 0;
+  const maximumBid = Math.max(0, coins);
   const bidForm = ownSubmitted
     ? `<div class="status-item"><strong>Tawaran terkunci</strong><span>Menunggu moderator membuka semua tawaran.</span></div>`
     : !privatePlayer
       ? '<div class="skeleton-block" role="status"><span class="visually-hidden">Menyiapkan saldo privat… Form tawaran akan aktif sebentar lagi.</span><i class="skeleton" aria-hidden="true"></i><i class="skeleton skeleton-short" aria-hidden="true"></i><i class="skeleton skeleton-button" aria-hidden="true"></i></div>'
-    : `<form id="bid-form" class="bid-form"><label for="bid-amount">Tawaran rahasia · saldo ${coins} koin</label><p class="field-hint" id="bid-hint">Isi bilangan bulat ${minimumBid}–${coins} koin.</p><input id="bid-amount" class="num" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="send" autocomplete="off" aria-describedby="bid-hint bid-error" value="${minimumBid}" required /><button class="button button-primary">Kunci tawaran</button><p class="error-text field-error" id="bid-error" role="alert" hidden></p></form>
+    : `<form id="bid-form" class="bid-form"><label for="bid-amount">Tawaran rahasia · saldo ${coins} koin</label><p class="field-hint" id="bid-hint">Isi bilangan bulat ${minimumBid}–${maximumBid} koin.${coins < 0 ? ' Saldo Anda minus, jadi tawaran hanya 0.' : ''}</p><input id="bid-amount" class="num" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="send" autocomplete="off" aria-describedby="bid-hint bid-error" value="${minimumBid}" required /><button class="button button-primary">Kunci tawaran</button><p class="error-text field-error" id="bid-error" role="alert" hidden></p></form>
        ${game.utangRemaining > 0 ? '<button class="button button-secondary" id="btn-loan" type="button">Pinjam 10 koin dari Bank</button>' : ''}`;
   const hostAction = isHost ? `<div class="status-item"><strong>${submitted}/${game.players.length} masuk</strong><span>${submitted === game.players.length ? 'Semua siap dibuka' : 'Tunggu semua tawaran'}</span></div><button class="button button-primary button-wide" id="btn-reveal-bids" type="button" ${submitted !== game.players.length || !fullGame ? 'disabled' : ''}>Buka tawaran & mulai fase aksi →</button>` : '';
   if (!setHtml(elements.phasePanel, `<h2>Fase Bidding · Ronde ${game.round}</h2><p class="phase-copy">Masukkan tawaran dari perangkat Anda. Nilai tawaran tidak terlihat oleh peserta lain; saldo dibayar ke Bank saat hasil dibuka.</p>${renderPoolPreview()}${bidForm}<div class="status-list num"><div class="status-item"><span>${escapeHtml(progress)}</span><strong>${game.utangRemaining} kartu utang</strong></div></div>${hostAction}`)) return;
@@ -636,8 +645,8 @@ function renderBidding() {
     event.preventDefault();
     const amount = Number($('#bid-amount').value);
     const bidError = $('#bid-error');
-    if (!Number.isInteger(amount) || amount < minimumBid || amount > coins) {
-      bidError.textContent = `Tawaran harus bilangan bulat dari ${minimumBid} sampai saldo Anda (${coins}).`;
+    if (!Number.isInteger(amount) || amount < minimumBid || amount > maximumBid) {
+      bidError.textContent = `Tawaran harus bilangan bulat dari ${minimumBid} sampai ${maximumBid} koin.`;
       bidError.hidden = false;
       return;
     }
@@ -662,7 +671,7 @@ function actionEffectForm(card) {
     return `<p class="phase-copy">Gerakkan harga sampai dua kali, satu poin setiap kali. Pergerakan kedua opsional.</p><div class="phase-controls"><select id="effect-sector-1" aria-label="Sektor pergerakan pertama">${sectors}</select><select id="effect-direction-1" aria-label="Arah pergerakan pertama"><option value="up">Naik 1</option><option value="down">Turun 1</option></select></div><div class="phase-controls"><select id="effect-sector-2" aria-label="Sektor pergerakan kedua"><option value="">Tidak ada pergerakan kedua</option>${sectors}</select><select id="effect-direction-2" aria-label="Arah pergerakan kedua"><option value="up">Naik 1</option><option value="down">Turun 1</option></select></div>`;
   }
   if (card.effect === 'quickbuy') return `<p class="phase-copy">Pilih sampai 2 kartu tambahan untuk langsung disimpan. Jika tidak memilih, Quickbuy hanya mengakhiri giliran.</p><div class="phase-controls"><select id="effect-quickbuy" multiple size="4" aria-label="Pilih kartu Quickbuy">${game.pool.filter((item) => item.id !== card.id).map((item) => `<option value="${item.id}">${escapeHtml(SECTOR_NAMES[item.theme])}</option>`).join('')}</select></div>`;
-  if (card.effect === 'fee') return `<p class="phase-copy">Biaya: ${1 + (playerByUid(game, user.uid).holdings[card.theme] || 0)} koin. Setelah membayar, Anda dapat menjual satu jenis saham.</p><div class="phase-controls"><select id="effect-sector">${Object.keys(playerByUid(game, user.uid).holdings).filter((id) => playerByUid(game, user.uid).holdings[id] > 0).map((id) => `<option value="${id}">${escapeHtml(SECTOR_NAMES[id])} · ${playerByUid(game, user.uid).holdings[id]} lembar</option>`).join('')}</select><input id="effect-quantity" type="number" inputmode="numeric" min="0" placeholder="Jumlah jual" aria-label="Jumlah saham untuk dijual" /></div>`;
+  if (card.effect === 'fee') return `<p class="phase-copy">Biaya: ${1 + (playerByUid(game, user.uid).holdings[card.theme] || 0)} koin. Setelah membayar, Anda dapat menjual satu jenis saham.${Number(privatePlayer?.coins ?? 0) < 1 + (playerByUid(game, user.uid).holdings[card.theme] || 0) ? ' Saldo Anda kurang: hasil penjualan dihitung dulu, kekurangannya menjadi saldo minus dan Anda memilih paket hutang.' : ''}</p><div class="phase-controls"><select id="effect-sector">${Object.keys(playerByUid(game, user.uid).holdings).filter((id) => playerByUid(game, user.uid).holdings[id] > 0).map((id) => `<option value="${id}">${escapeHtml(SECTOR_NAMES[id])} · ${playerByUid(game, user.uid).holdings[id]} lembar</option>`).join('')}</select><input id="effect-quantity" type="number" inputmode="numeric" min="0" placeholder="Jumlah jual" aria-label="Jumlah saham untuk dijual" /></div>`;
   const player = playerByUid(game, user.uid);
   const eligible = game.players.filter((target) => target.uid !== user.uid && SECTORS_FOR_GAME.some((id) => target.holdings[id] > 0 && player.holdings[id] >= target.holdings[id]));
   const choices = eligible.flatMap((target) => SECTORS_FOR_GAME.filter((id) => target.holdings[id] > 0 && player.holdings[id] >= target.holdings[id]).map((id) => `<option value="${target.uid}|${id}">${escapeHtml(target.name)} · ${escapeHtml(SECTOR_NAMES[id])}</option>`)).join('');
@@ -755,6 +764,7 @@ function renderGame() {
   else renderEconomy();
   restoreFormState(elements.phasePanel, formState);
   syncWakeLock();
+  syncDebtDialog();
 }
 
 async function handleRoomForm(event) {
@@ -847,6 +857,26 @@ if (window.matchMedia('(pointer: coarse)').matches) {
   document.addEventListener('focusout', () => { focusedField = null; });
   window.visualViewport?.addEventListener('resize', revealFocusedField);
 }
+
+// Saldo minus: popup memilih paket kartu utang (10 koin per kartu, dilunasi 13 di skor akhir).
+const debtDialog = $('#debt-dialog');
+const debtOptions = $('#debt-options');
+function syncDebtDialog() {
+  const coins = Number(privatePlayer?.coins ?? 0);
+  const options = game && game.phase !== 'complete' && currentScreen === 'game' ? debtPackageOptions(coins, game.utangRemaining) : [];
+  if (!options.length) {
+    if (debtDialog.open) debtDialog.close();
+    return;
+  }
+  $('#debt-copy').textContent = `Saldo Anda ${numberFormat.format(coins)} koin (kurang ${numberFormat.format(-coins)}). Pilih paket hutang untuk menutupnya. Sisa kartu utang: ${game.utangRemaining}.`;
+  setHtml(debtOptions, options.map((count, index) => `<button type="button" class="button ${index === 0 ? 'button-primary' : 'button-secondary'}" data-count="${count}">Ambil ${count} kartu utang · +${DEBT_CARD_COINS * count} koin<span class="debt-penalty">skor akhir −${DEBT_CARD_PENALTY * count}</span></button>`).join(''));
+  if (!debtDialog.open) debtDialog.showModal();
+}
+debtOptions.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-count]');
+  if (button) withBusy(button, () => submitPlayerCommand('debt', { count: Number(button.dataset.count) }), COMMAND_LOCK_MS);
+});
+debtDialog.addEventListener('cancel', (event) => event.preventDefault());
 
 elements.createTab.addEventListener('click', () => setMode('create'));
 $('.tabs').addEventListener('keydown', (event) => {
