@@ -6,6 +6,8 @@ test('a price move shows the latest price with the signed difference', () => {
   const up = describePrice({ price: 9, from: 5 });
   assert.deepEqual([up.trend, up.mark, up.short], ['up', '▲', '+4']);
   assert.equal(up.summary, '5 → 9 · ▲ +4');
+  assert.equal(up.detail, 'dari 5', 'penanda menyebut harga sebelumnya agar tidak membingungkan');
+  assert.equal(up.aria, 'naik 4 dari 5');
   const down = describePrice({ price: 3, from: 6 });
   assert.deepEqual([down.trend, down.mark, down.short], ['down', '▼', '−3']);
   assert.equal(down.summary, '6 → 3 · ▼ −3');
@@ -13,6 +15,7 @@ test('a price move shows the latest price with the signed difference', () => {
 
 test('an unchanged or never-seen price is flat', () => {
   assert.equal(describePrice({ price: 5, from: 5 }).trend, 'flat');
+  assert.equal(describePrice({ price: 5, from: 5 }).detail, '');
   assert.equal(describePrice({ price: 5 }).summary, '5 · – tidak berubah');
 });
 

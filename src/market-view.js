@@ -16,18 +16,19 @@ export function parseEconomyEvents(log = []) {
 // from: harga sebelum perubahan terakhir (undefined bila belum pernah terlihat berubah).
 export function describePrice({ price, from, event }) {
   if (event === 'split') {
-    return { trend: 'up', mark: '✦', short: 'Split', aria: 'Split: saham berlipat ganda, harga kembali ke 5', summary: `${from == null ? '' : `${format(from)} → `}${format(price)} · ✦ Split: saham ×2, harga reset ke 5` };
+    return { trend: 'up', mark: '✦', short: 'Split', detail: from == null ? '' : `dari ${format(from)}`, aria: 'Split: saham berlipat ganda, harga kembali ke 5', summary: `${from == null ? '' : `${format(from)} → `}${format(price)} · ✦ Split: saham ×2, harga reset ke 5` };
   }
   if (event === 'pailit') {
-    return { trend: 'down', mark: '✖', short: 'Pailit', aria: 'Pailit: saham kembali ke Bank, harga kembali ke 5', summary: `${from == null ? '' : `${format(from)} → `}${format(price)} · ✖ Pailit: saham kembali ke Bank, harga reset ke 5` };
+    return { trend: 'down', mark: '✖', short: 'Pailit', detail: from == null ? '' : `dari ${format(from)}`, aria: 'Pailit: saham kembali ke Bank, harga kembali ke 5', summary: `${from == null ? '' : `${format(from)} → `}${format(price)} · ✖ Pailit: saham kembali ke Bank, harga reset ke 5` };
   }
   const delta = from == null ? 0 : price - from;
   const trend = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
   const mark = delta > 0 ? '▲' : delta < 0 ? '▼' : '–';
   const amount = delta > 0 ? `+${format(delta)}` : delta < 0 ? `−${format(-delta)}` : '0';
-  const aria = delta > 0 ? `naik ${format(delta)}` : delta < 0 ? `turun ${format(-delta)}` : 'tidak berubah';
+  const detail = delta === 0 ? '' : `dari ${format(from)}`;
+  const aria = delta > 0 ? `naik ${format(delta)} dari ${format(from)}` : delta < 0 ? `turun ${format(-delta)} dari ${format(from)}` : 'tidak berubah';
   const summary = delta === 0 ? `${format(price)} · – tidak berubah` : `${format(from)} → ${format(price)} · ${mark} ${amount}`;
-  return { trend, mark, short: amount, aria, summary };
+  return { trend, mark, short: amount, detail, aria, summary };
 }
 
 // Pelacak harga per perangkat. Engine tidak menyimpan riwayat harga, jadi "dari" dihitung dari harga terakhir yang dilihat.

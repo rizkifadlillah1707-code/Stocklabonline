@@ -556,7 +556,7 @@ function renderMarket() {
   setHtml(elements.market, items.map((sector) => {
     const view = describePrice({ price: sector.price, from: priceTracker.from[sector.id], event: priceTracker.event[sector.id] });
     return `
-    <div class="market-tile"><div class="market-name">${escapeHtml(sector.name)}</div><div class="market-price num ${view.trend}">${numberFormat.format(sector.price)}</div><div class="market-delta num ${view.trend}" aria-label="${view.aria}"><span aria-hidden="true">${view.mark} ${view.short}</span></div></div>`;
+    <div class="market-tile"><div class="market-name">${escapeHtml(sector.name)}</div><div class="market-price num ${view.trend}">${numberFormat.format(sector.price)}</div><div class="market-delta num ${view.trend}" aria-label="${view.aria}"><span aria-hidden="true">${view.mark} ${view.short}${view.detail ? ` ${view.detail}` : ''}</span></div></div>`;
   }).join(''));
 }
 
