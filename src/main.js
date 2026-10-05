@@ -38,7 +38,7 @@ import {
   trackPresence,
   updateRoomStatus
 } from './room-service.js';
-import { describePrice, parseEconomyEvents } from './market-view.js';
+import { createPriceTracker, describePrice, updatePriceTracker } from './market-view.js';
 import { backAction, backMessage, bannerText, historyStep, shouldHoldWakeLock, shouldWarnOnUnload } from './lifecycle.js';
 
 const $ = (selector) => document.querySelector(selector);
@@ -80,10 +80,7 @@ let commandQueue = Promise.resolve();
 let pendingCommands = [];
 let commandRosterKey = '';
 let bidRosterKey = '';
-let lastPrices = {};
-let priceFrom = {};
-let priceEvent = {};
-let economySeen = '';
+let priceTracker = createPriceTracker();
 let hasConnected = false;
 let isConnected = false;
 let copyTimer = 0;
@@ -311,10 +308,7 @@ function openRoom(code) {
   roomData = null;
   selectedCardId = '';
   turnKey = '';
-  lastPrices = {};
-  priceFrom = {};
-  priceEvent = {};
-  economySeen = '';
+  priceTracker = createPriceTracker();
   htmlCache = new WeakMap();
   unsubscribePresence = trackPresence(db, code, user.uid, (error) => toast(`Status koneksi room gagal: ${error.message}`, true));
   unsubscribeRoom = subscribeRoom(db, code, (data) => {
@@ -548,28 +542,11 @@ function marketItems() {
   return [...game.sectors.map((sector) => ({ id: sector.id, name: sector.name, price: sector.price })), { id: 'reksadana', name: 'Reksa Dana', price: sectorPrice(game, 'reksadana') }];
 }
 
-// Harga yang ditampilkan selalu harga terbaru. Engine tidak menyimpan riwayat harga, jadi "dari" dihitung
-// dari harga terakhir yang dilihat perangkat ini; Split/Pailit dibaca dari log ekonomi ronde yang baru selesai.
-function trackPrices(items) {
-  const settled = game.phase === 'between' || game.phase === 'complete';
-  const newEconomy = settled && economySeen !== String(game.round);
-  const events = newEconomy ? parseEconomyEvents(game.economyLog) : {};
-  for (const sector of items) {
-    if (sector.id in lastPrices && lastPrices[sector.id] !== sector.price) {
-      priceFrom[sector.id] = lastPrices[sector.id];
-      priceEvent[sector.id] = null;
-    }
-    if (events[sector.name]) priceEvent[sector.id] = events[sector.name];
-    lastPrices[sector.id] = sector.price;
-  }
-  if (newEconomy) economySeen = String(game.round);
-}
-
 function renderMarket() {
   const items = marketItems();
-  trackPrices(items);
+  updatePriceTracker(priceTracker, items, game);
   setHtml(elements.market, items.map((sector) => {
-    const view = describePrice({ price: sector.price, from: priceFrom[sector.id], event: priceEvent[sector.id] });
+    const view = describePrice({ price: sector.price, from: priceTracker.from[sector.id], event: priceTracker.event[sector.id] });
     return `
     <div class="market-tile"><div class="market-name">${escapeHtml(sector.name)}</div><div class="market-price num ${view.trend}">${numberFormat.format(sector.price)}</div><div class="market-delta num ${view.trend}" aria-label="${view.aria}"><span aria-hidden="true">${view.mark} ${view.short}</span></div></div>`;
   }).join(''));
@@ -578,7 +555,7 @@ function renderMarket() {
 // Ringkasan harga sesudah kartu ekonomi: "5 → 9 · ▲ +4", atau label Split/Pailit.
 function priceSummaryHtml() {
   const rows = marketItems().map((sector) => {
-    const view = describePrice({ price: sector.price, from: priceFrom[sector.id], event: priceEvent[sector.id] });
+    const view = describePrice({ price: sector.price, from: priceTracker.from[sector.id], event: priceTracker.event[sector.id] });
     return `<div class="status-item"><span>${escapeHtml(sector.name)}</span><strong class="num price-${view.trend}">${view.summary}</strong></div>`;
   }).join('');
   return `<h3 class="summary-heading">Harga saham sekarang</h3><div class="status-list num">${rows}</div>`;

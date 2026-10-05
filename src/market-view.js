@@ -29,3 +29,29 @@ export function describePrice({ price, from, event }) {
   const summary = delta === 0 ? `${format(price)} · – tidak berubah` : `${format(from)} → ${format(price)} · ${mark} ${amount}`;
   return { trend, mark, short: amount, aria, summary };
 }
+
+// Pelacak harga per perangkat. Engine tidak menyimpan riwayat harga, jadi "dari" dihitung dari harga terakhir yang dilihat.
+// Pada setiap hasil ekonomi baru, sektor yang tidak bergerak di ekonomi itu dianggap datar (label ronde lama tidak terbawa).
+export function createPriceTracker() {
+  return { last: {}, from: {}, event: {}, seen: '' };
+}
+
+export function updatePriceTracker(tracker, items, { phase, round, economyLog }) {
+  const settled = phase === 'between' || phase === 'complete';
+  const newEconomy = settled && tracker.seen !== String(round);
+  const events = newEconomy ? parseEconomyEvents(economyLog) : {};
+  for (const item of items) {
+    const changed = item.id in tracker.last && tracker.last[item.id] !== item.price;
+    if (changed) {
+      tracker.from[item.id] = tracker.last[item.id];
+      tracker.event[item.id] = null;
+    } else if (newEconomy) {
+      tracker.from[item.id] = item.price;
+      tracker.event[item.id] = null;
+    }
+    if (events[item.name]) tracker.event[item.id] = events[item.name];
+    tracker.last[item.id] = item.price;
+  }
+  if (newEconomy) tracker.seen = String(round);
+  return tracker;
+}
