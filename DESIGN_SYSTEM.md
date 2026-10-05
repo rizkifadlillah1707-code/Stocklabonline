@@ -629,7 +629,7 @@ Tautan produk komersial sengaja tidak dicantumkan karena tampilannya berubah. Ca
 | A4 | Selesai | Tombol dan teks merek 5,88:1 |
 | A5 | Selesai | `--up` #1e7a52: 5,30:1 |
 | A6 | Selesai | Tidak ada teks di bawah 12 px (dipindai di Chromium, 360/744/1280 px) |
-| A7 | Selesai | ▲/▼/– beserta `aria-label`. Arah dihitung di perangkat dari harga terakhir yang dilihat; setelah muat ulang tampil "– 0" sampai harga berubah. |
+| A7 | Selesai | ▲/▼/– beserta `aria-label`; harga selalu yang terbaru (mis. 5 → 9), ringkasan "Harga saham sekarang" sesudah ekonomi, dan label ✦ Split / ✖ Pailit (harga reset ke 5) dibaca dari log engine (`src/market-view.js`). Arah dihitung di perangkat dari harga terakhir yang dilihat; setelah muat ulang tampil "– 0" sampai harga berubah. |
 | A8 | Selesai | Kelas `.num` (`tabular-nums`) pada harga, tabel, tawaran, skor |
 | A9 | Selesai | `prefers-color-scheme` + `data-theme` + tombol ganti tema (disimpan di localStorage) |
 | A10 | Selesai | 0 hex hardcode tersisa di styles.css dan main.js |

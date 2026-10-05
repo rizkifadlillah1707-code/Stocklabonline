@@ -38,6 +38,7 @@ import {
   trackPresence,
   updateRoomStatus
 } from './room-service.js';
+import { describePrice, parseEconomyEvents } from './market-view.js';
 import { backAction, backMessage, bannerText, historyStep, shouldHoldWakeLock, shouldWarnOnUnload } from './lifecycle.js';
 
 const $ = (selector) => document.querySelector(selector);
@@ -80,7 +81,9 @@ let pendingCommands = [];
 let commandRosterKey = '';
 let bidRosterKey = '';
 let lastPrices = {};
-let priceDelta = {};
+let priceFrom = {};
+let priceEvent = {};
+let economySeen = '';
 let hasConnected = false;
 let isConnected = false;
 let copyTimer = 0;
@@ -309,7 +312,9 @@ function openRoom(code) {
   selectedCardId = '';
   turnKey = '';
   lastPrices = {};
-  priceDelta = {};
+  priceFrom = {};
+  priceEvent = {};
+  economySeen = '';
   htmlCache = new WeakMap();
   unsubscribePresence = trackPresence(db, code, user.uid, (error) => toast(`Status koneksi room gagal: ${error.message}`, true));
   unsubscribeRoom = subscribeRoom(db, code, (data) => {
@@ -539,22 +544,44 @@ function phaseCopy(phase) {
   return map[phase] || ['STOCKLAB', 'Permainan'];
 }
 
-function renderMarket() {
-  const items = [...game.sectors.map((sector) => ({ id: sector.id, name: sector.name, price: sector.price })), { id: 'reksadana', name: 'Reksa Dana', price: sectorPrice(game, 'reksadana') }];
-  // Engine tidak menyimpan riwayat harga: arah dihitung dari harga terakhir yang dilihat perangkat ini.
+function marketItems() {
+  return [...game.sectors.map((sector) => ({ id: sector.id, name: sector.name, price: sector.price })), { id: 'reksadana', name: 'Reksa Dana', price: sectorPrice(game, 'reksadana') }];
+}
+
+// Harga yang ditampilkan selalu harga terbaru. Engine tidak menyimpan riwayat harga, jadi "dari" dihitung
+// dari harga terakhir yang dilihat perangkat ini; Split/Pailit dibaca dari log ekonomi ronde yang baru selesai.
+function trackPrices(items) {
+  const settled = game.phase === 'between' || game.phase === 'complete';
+  const newEconomy = settled && economySeen !== String(game.round);
+  const events = newEconomy ? parseEconomyEvents(game.economyLog) : {};
   for (const sector of items) {
-    if (sector.id in lastPrices && lastPrices[sector.id] !== sector.price) priceDelta[sector.id] = sector.price - lastPrices[sector.id];
+    if (sector.id in lastPrices && lastPrices[sector.id] !== sector.price) {
+      priceFrom[sector.id] = lastPrices[sector.id];
+      priceEvent[sector.id] = null;
+    }
+    if (events[sector.name]) priceEvent[sector.id] = events[sector.name];
     lastPrices[sector.id] = sector.price;
   }
+  if (newEconomy) economySeen = String(game.round);
+}
+
+function renderMarket() {
+  const items = marketItems();
+  trackPrices(items);
   setHtml(elements.market, items.map((sector) => {
-    const delta = priceDelta[sector.id] || 0;
-    const trend = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
-    const mark = delta > 0 ? '▲' : delta < 0 ? '▼' : '–';
-    const amount = delta > 0 ? `+${numberFormat.format(delta)}` : delta < 0 ? `−${numberFormat.format(-delta)}` : '0';
-    const label = delta > 0 ? `naik ${numberFormat.format(delta)}` : delta < 0 ? `turun ${numberFormat.format(-delta)}` : 'tidak berubah';
+    const view = describePrice({ price: sector.price, from: priceFrom[sector.id], event: priceEvent[sector.id] });
     return `
-    <div class="market-tile"><div class="market-name">${escapeHtml(sector.name)}</div><div class="market-price num ${trend}">${numberFormat.format(sector.price)}</div><div class="market-delta num ${trend}" aria-label="${label}"><span aria-hidden="true">${mark} ${amount}</span></div></div>`;
+    <div class="market-tile"><div class="market-name">${escapeHtml(sector.name)}</div><div class="market-price num ${view.trend}">${numberFormat.format(sector.price)}</div><div class="market-delta num ${view.trend}" aria-label="${view.aria}"><span aria-hidden="true">${view.mark} ${view.short}</span></div></div>`;
   }).join(''));
+}
+
+// Ringkasan harga sesudah kartu ekonomi: "5 → 9 · ▲ +4", atau label Split/Pailit.
+function priceSummaryHtml() {
+  const rows = marketItems().map((sector) => {
+    const view = describePrice({ price: sector.price, from: priceFrom[sector.id], event: priceEvent[sector.id] });
+    return `<div class="status-item"><span>${escapeHtml(sector.name)}</span><strong class="num price-${view.trend}">${view.summary}</strong></div>`;
+  }).join('');
+  return `<h3 class="summary-heading">Harga saham sekarang</h3><div class="status-list num">${rows}</div>`;
 }
 
 function renderPlayers() {
@@ -725,7 +752,7 @@ function renderEconomy() {
   if (game.phase === 'economy') {
     if (setHtml(elements.phasePanel, `<h2>Semua pemain selesai menjual</h2><p class="phase-copy">Moderator membuka Kartu Ekonomi untuk menggerakkan seluruh sektor.</p>${isHost ? '<button class="button button-primary" id="btn-run-economy">Buka Kartu Ekonomi →</button>' : '<div class="status-item"><strong>Menunggu moderator</strong><span>Harga akan diperbarui serentak.</span></div>'}`)) $('#btn-run-economy')?.addEventListener('click', (event) => withBusy(event.currentTarget, runEconomy));
   } else if (game.phase === 'between') {
-    if (setHtml(elements.phasePanel, `<h2>Ringkasan Ekonomi · Ronde ${game.round}</h2><p class="phase-copy">${game.lastMessage}</p>${cards}${log}${isHost ? '<button class="button button-primary" id="btn-next-round">Mulai ronde berikutnya →</button>' : '<div class="status-item"><strong>Menunggu moderator</strong><span>Ronde berikutnya segera dimulai.</span></div>'}`)) $('#btn-next-round')?.addEventListener('click', (event) => withBusy(event.currentTarget, nextRound));
+    if (setHtml(elements.phasePanel, `<h2>Ringkasan Ekonomi · Ronde ${game.round}</h2><p class="phase-copy">${game.lastMessage}</p>${priceSummaryHtml()}${cards}${log}${isHost ? '<button class="button button-primary" id="btn-next-round">Mulai ronde berikutnya →</button>' : '<div class="status-item"><strong>Menunggu moderator</strong><span>Ronde berikutnya segera dimulai.</span></div>'}`)) $('#btn-next-round')?.addEventListener('click', (event) => withBusy(event.currentTarget, nextRound));
   } else {
     const scores = game.publicScores || [];
     setHtml(elements.phasePanel, `<h2>Investor Terbaik: ${escapeHtml(scores[0]?.name || '—')}</h2><p class="phase-copy">Skor akhir = koin + nilai saham − utang.</p><div class="status-list num">${scores.map((score, index) => `<div class="status-item"><span>#${index + 1} · ${escapeHtml(score.name)} (${score.coins} + ${score.shareValue} − ${score.debt})</span><strong>${score.total}</strong></div>`).join('')}</div>`);

@@ -319,3 +319,9 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
 @keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 .error-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .share-box .button { flex: none; white-space: nowrap; }
+
+/* Ringkasan harga sesudah ekonomi (harga terbaru, Split, Pailit) */
+.summary-heading { margin: 16px 0 0; font-size: var(--text-base); }
+.status-item strong.price-up { color: var(--up); }
+.status-item strong.price-down { color: var(--down); }
+.status-item strong.price-flat { color: var(--flat); }
