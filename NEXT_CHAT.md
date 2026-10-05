@@ -14,7 +14,8 @@ Dokumen ini melengkapi README: gunakan README untuk setup/deploy umum, dan file 
 
 ## Status Git terkini (redesign UI/UX)
 
-- Cabang kerja: `desain-ui-ux` (dari `main`), **15 commit lokal, belum dipush, belum dideploy**.
+- **Preview Cloudflare** (bukan production): https://desain-ui-ux.stocklab-online.pages.dev, dideploy dengan `wrangler pages deploy dist --project-name stocklab-online --branch preview`. Production `stocklab-online.pages.dev` belum berubah. Hostname preview sudah berfungsi dengan Firebase Auth.
+- Uji otomatis 3 tab (Playwright; moderator 1024×768 + 2 pemain 390×844) pada preview: buat/gabung room, mulai, 2 ronde penuh (tawaran, aksi, jual, ekonomi), banner offline-online berhasil tanpa galat konsol selain WebSocket yang sengaja diputus. Room uji `BRFNHC` tertinggal di Firebase (status playing).
 - `main` = `origin/main` = `71e93e9` (tidak diubah oleh redesign).
 - Tahap 9 (Web Awesome / `<dialog>`) sengaja dilewati. Tahap 10 (uji perangkat nyata) belum dilakukan: lihat checklist di bagian bawah.
 - Hanya tampilan dan siklus hidup UI yang berubah. `game-engine.js`, `room-service.js`, `firebase.js`, dan rules tidak disentuh. `.env` tidak dibaca.
