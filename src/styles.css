@@ -325,3 +325,9 @@ input:focus, select:focus { border-color: var(--brand); outline: none; }
 .status-item strong.price-up { color: var(--up); }
 .status-item strong.price-down { color: var(--down); }
 .status-item strong.price-flat { color: var(--flat); }
+
+/* Form jual: pilihan saham satu baris penuh, jumlah dan tombol di bawahnya (tahan di layar sempit) */
+#sale-form { flex-wrap: wrap; }
+#sale-form select { flex: 1 1 100%; }
+#sale-form input { flex: 1 1 96px; min-width: 96px; }
+#sale-form .button { flex: 1 1 auto; }
