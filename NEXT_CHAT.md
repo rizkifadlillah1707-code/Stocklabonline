@@ -1,6 +1,6 @@
 # StockLab Online — Handoff untuk Chat Berikutnya
 
-Dokumen ini melengkapi README: gunakan README untuk setup/deploy umum, dan file ini untuk status kerja paling baru.
+Dokumen ini melengkapi `README.md` (panduan pengguna/pemain) dan `DEVELOPER.md` (setup, Firebase, deploy, struktur kode): gunakan keduanya untuk hal umum, dan file ini untuk status kerja paling baru.
 
 ## Project dan akses
 
@@ -34,6 +34,7 @@ Dokumen ini melengkapi README: gunakan README untuk setup/deploy umum, dan file 
 - `src/room-service.js`, `src/firebase.js` — akses Firebase Realtime Database dan inisialisasi (tidak diubah).
 - `src/public/` — manifest, ikon, dan font self-host beserta lisensi SIL OFL.
 - `tests/game-engine.test.js`, `tests/lifecycle.test.js`, `tests/market-view.test.js`.
+- `README.md` — panduan untuk pengguna/pemain; `DEVELOPER.md` — panduan pengembang.
 - `DESIGN_SYSTEM.md` — acuan desain; bagian 12 berisi hasil penerapan, status temuan A1–A13, dan checklist uji perangkat.
 
 ## Aturan permainan penting (sesuai kode saat ini)
