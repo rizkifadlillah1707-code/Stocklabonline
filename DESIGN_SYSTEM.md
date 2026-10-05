@@ -637,7 +637,7 @@ Tautan produk komersial sengaja tidak dicantumkan karena tampilannya berubah. Ca
 | A12 | Selesai | Toast di bawah, lebar penuh di ponsel, safe-area. Belum diverifikasi di perangkat. |
 | A13 | Selesai | Strip pasar 2+3 kolom di ponsel, 5 kolom di ≥640 px |
 
-Belum dikerjakan (di luar daftar tahap): dashboard `<details>` terlipat di ponsel, dialog konfirmasi alat moderator, ikon/durasi toast per jenis, tombol "Tersalin ✓", syarat "Minimal 3 pemain", skeleton, tombol "Coba lagi" di layar error, navigasi panah antar tab beranda.
+Item UX lanjutan (sudah dikerjakan setelah tahap 8): dashboard `<details>` terlipat di ponsel (pilihan pemain bertahan antar pembaruan), konfirmasi sebelum "Lewati giliran pemain offline" dengan label "Khusus moderator", toast per jenis (info/sukses/peringatan/error; error 8 detik dan bisa ditutup, lainnya 4 detik), tombol "Tersalin ✓" 2 detik, skeleton saat saldo privat dimuat, tombol "Coba lagi" (muat ulang halaman) di layar error, panah/Home/End antar tab beranda dengan `aria-controls`, teks "Minimal 3 pemain (sekarang N)", dan keadaan kosong lobby "Menunggu pemain. Bagikan kode …". Tombol "Salin tautan" tidak lagi terbungkus dua baris. Belum diverifikasi di perangkat; hanya diuji di Chromium (tab/toast) dan lewat tangkapan layar tiruan.
 
 ### 12.3 Checklist uji perangkat (belum diverifikasi di perangkat)
 Kriteria lulus (9.5): tidak ada scroll horizontal di 320–1376 px, tidak ada konten tertutup poni/bar gestur/keyboard, tidak ada zoom otomatis di input, pemain pulih dalam 5 detik setelah kembali dari latar belakang.

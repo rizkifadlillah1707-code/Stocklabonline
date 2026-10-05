@@ -29,6 +29,8 @@
   --up-line: #c9e7db;
   --up-dot: #38a674;
   --danger: #b52636;
+  --info: #2b6cb0;
+  --warning: #9a5b00;
   --danger-ink: #9e2331;
   --focus-ring-color: var(--brand);
   --glow-warm: #fce5e3;
@@ -102,6 +104,8 @@
     --up-line: #2a5a46;
     --up-dot: #4cc28a;
     --danger: #ff8a94;
+  --info: #7db4ee;
+  --warning: #f0b45a;
     --danger-ink: #ffb0b6;
     --glow-warm: #2a1517;
     --glow-cool: #11231d;

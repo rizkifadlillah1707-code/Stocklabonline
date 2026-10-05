@@ -83,6 +83,8 @@ let lastPrices = {};
 let priceDelta = {};
 let hasConnected = false;
 let isConnected = false;
+let copyTimer = 0;
+let dashboardOpen = null;
 let currentScreen = 'home';
 let wakeLock = null;
 let wakeLockBusy = false;
@@ -214,12 +216,33 @@ window.addEventListener('beforeunload', (event) => {
   event.returnValue = '';
 });
 
-function toast(message, isError = false) {
+// kind: 'info' | 'success' | 'warning' | 'error' (true = error, kompatibel dengan pemanggilan lama).
+// Error bertahan 8 detik dan bisa ditutup; jenis lain hilang dalam 4 detik.
+const TOAST_ICONS = { info: 'ℹ', success: '✓', warning: '⚠', error: '✕' };
+function toast(message, kind = 'info') {
+  const type = kind === true ? 'error' : kind === false ? 'info' : kind;
   const item = document.createElement('div');
-  item.className = `toast${isError ? ' error' : ''}`;
-  item.textContent = message;
+  item.className = `toast ${type}`;
+  item.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  const icon = document.createElement('span');
+  icon.className = 'toast-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = TOAST_ICONS[type] || TOAST_ICONS.info;
+  const text = document.createElement('span');
+  text.className = 'toast-text';
+  text.textContent = message;
+  item.append(icon, text);
+  if (type === 'error') {
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'toast-close';
+    close.setAttribute('aria-label', 'Tutup pesan');
+    close.textContent = '×';
+    close.addEventListener('click', () => item.remove());
+    item.append(close);
+  }
   elements.toastRegion.append(item);
-  window.setTimeout(() => item.remove(), 3800);
+  window.setTimeout(() => item.remove(), type === 'error' ? 8000 : 4000);
 }
 
 // Cegah klik ganda: tombol dikunci dan berlabel "Memproses…" selama aksi berjalan.
@@ -385,7 +408,7 @@ function renderLobby() {
     : 'Moderator akan memulai setelah semua pemain bergabung.';
   elements.startGame.hidden = !isHost;
   elements.startGame.disabled = players.length < 3 || players.length > 5;
-  elements.startGame.textContent = players.length < 3 ? `Butuh ${3 - players.length} pemain lagi` : players.length > 5 ? 'Maksimal 5 pemain' : 'Mulai permainan →';
+  elements.startGame.textContent = players.length < 3 ? `Minimal 3 pemain (sekarang ${players.length})` : players.length > 5 ? 'Maksimal 5 pemain' : 'Mulai permainan →';
   elements.leaveRoom.textContent = isHost ? 'Tutup room' : 'Keluar dari room';
   elements.players.innerHTML = players.map((player, index) => `
     <div class="lobby-player">
@@ -393,7 +416,7 @@ function renderLobby() {
       <span class="lobby-player-name">${escapeHtml(player.name)}</span>
       <span class="host-label" style="color:${roomData.presence?.[player.uid]?.online === true ? 'var(--up)' : 'var(--faint)'}">${roomData.presence?.[player.uid]?.online === true ? 'ONLINE' : roomData.presence?.[player.uid]?.online === false ? 'OFFLINE' : '…'}</span>
       ${player.isHost || player.uid === roomData.meta.hostUid ? '<span class="host-label">MOD</span>' : `<span class="host-label" style="color:var(--faint)">P${index + 1}</span>`}
-    </div>`).join('');
+    </div>`).join('') + (players.length < 2 ? `<p class="empty-hint">Menunggu pemain. Bagikan kode <strong>${escapeHtml(roomCode)}</strong></p>` : '');
 }
 
 async function startGame() {
@@ -403,7 +426,7 @@ async function startGame() {
     fullGame = nextGame;
     await publishGameState(db, roomCode, nextGame);
     await updateRoomStatus(db, roomCode, 'playing');
-    toast('Permainan dimulai. Semua pemain masukkan tawaran.');
+    toast('Permainan dimulai. Semua pemain masukkan tawaran.', 'success');
   } catch (error) {
     toast(error.message, true);
   }
@@ -472,7 +495,7 @@ async function revealBids() {
     await publishGameState(db, roomCode, nextGame);
     bids = {};
     await clearBids(db, roomCode, uids);
-    toast('Tawaran dibuka bersama. Urutan main sudah ditentukan.');
+    toast('Tawaran dibuka bersama. Urutan main sudah ditentukan.', 'success');
   } catch (error) {
     toast(error.message, true);
   }
@@ -546,15 +569,18 @@ function renderPlayers() {
   }).join(''));
   const currentIsOffline = current && roomData?.presence?.[current.uid]?.online === false;
   elements.hostTools.hidden = !isHost || !currentIsOffline || !['action', 'sell'].includes(game.phase);
-  const hostToolsChanged = setHtml(elements.hostTools, elements.hostTools.hidden ? '' : '<button class="button button-secondary" id="btn-skip-turn" type="button">Lewati giliran pemain offline</button>');
-  if (hostToolsChanged) $('#btn-skip-turn')?.addEventListener('click', (event) => withBusy(event.currentTarget, async () => {
+  const hostToolsChanged = setHtml(elements.hostTools, elements.hostTools.hidden ? '' : '<p class="host-tools-label">Khusus moderator</p><button class="button button-secondary" id="btn-skip-turn" type="button">Lewati giliran pemain offline</button>');
+  if (hostToolsChanged) $('#btn-skip-turn')?.addEventListener('click', (event) => {
+    if (!window.confirm(`Lewati giliran ${current?.name || 'pemain'}? Pemain ini sedang offline dan gilirannya akan dilewati.`)) return;
+    withBusy(event.currentTarget, async () => {
     try {
       const nextGame = structuredClone(fullGame);
       skipCurrentTurn(nextGame);
       fullGame = nextGame;
       await publishGameState(db, roomCode, nextGame);
     } catch (error) { toast(error.message, true); }
-  }));
+    });
+  });
 }
 
 function renderPoolPreview() {
@@ -580,7 +606,8 @@ function renderPortfolioDashboard() {
     return `<tr class="${player.uid === user.uid ? 'me' : ''}"><th scope="row">${escapeHtml(player.name)}${player.uid === user.uid ? ' (Anda)' : ''}</th>${cells}<td class="value">${value}</td></tr>`;
   }).join('');
   const totals = ids.map((id) => `<td>${game.players.reduce((sum, player) => sum + (player.holdings[id] || 0), 0)}</td>`).join('');
-  setHtml(elements.portfolioDashboard, `<div class="sidebar-heading"><h2>Dashboard Portofolio</h2><span>TERBUKA UNTUK SEMUA</span></div><div class="table-scroll"><table class="portfolio-table num"><thead><tr><th>Pemain</th>${head}<th>Nilai saham<small>koin</small></th></tr></thead><tbody>${body}</tbody><tfoot><tr><th>Total beredar</th>${totals}<td></td></tr></tfoot></table></div>`);
+  if (dashboardOpen === null) dashboardOpen = !window.matchMedia('(max-width: 640px)').matches;
+  setHtml(elements.portfolioDashboard, `<details class="dash-details"${dashboardOpen ? ' open' : ''}><summary class="sidebar-heading"><h2>Dashboard Portofolio</h2><span>TERBUKA UNTUK SEMUA</span></summary><div class="table-scroll"><table class="portfolio-table num"><thead><tr><th>Pemain</th>${head}<th>Nilai saham<small>koin</small></th></tr></thead><tbody>${body}</tbody><tfoot><tr><th>Total beredar</th>${totals}<td></td></tr></tfoot></table></div></details>`);
 }
 
 function renderBidding() {
@@ -593,7 +620,7 @@ function renderBidding() {
   const bidForm = ownSubmitted
     ? `<div class="status-item"><strong>Tawaran terkunci</strong><span>Menunggu moderator membuka semua tawaran.</span></div>`
     : !privatePlayer
-      ? '<div class="status-item"><strong>Menyiapkan saldo privat…</strong><span>Form tawaran akan aktif sebentar lagi.</span></div>'
+      ? '<div class="skeleton-block" role="status"><span class="visually-hidden">Menyiapkan saldo privat… Form tawaran akan aktif sebentar lagi.</span><i class="skeleton" aria-hidden="true"></i><i class="skeleton skeleton-short" aria-hidden="true"></i><i class="skeleton skeleton-button" aria-hidden="true"></i></div>'
     : `<form id="bid-form" class="bid-form"><label for="bid-amount">Tawaran rahasia · saldo ${coins} koin</label><p class="field-hint" id="bid-hint">Isi bilangan bulat ${minimumBid}–${coins} koin.</p><input id="bid-amount" class="num" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="send" autocomplete="off" aria-describedby="bid-hint bid-error" value="${minimumBid}" required /><button class="button button-primary">Kunci tawaran</button><p class="error-text field-error" id="bid-error" role="alert" hidden></p></form>
        ${game.utangRemaining > 0 ? '<button class="button button-secondary" id="btn-loan" type="button">Pinjam 10 koin dari Bank</button>' : ''}`;
   const hostAction = isHost ? `<div class="status-item"><strong>${submitted}/${game.players.length} masuk</strong><span>${submitted === game.players.length ? 'Semua siap dibuka' : 'Tunggu semua tawaran'}</span></div><button class="button button-primary button-wide" id="btn-reveal-bids" type="button" ${submitted !== game.players.length || !fullGame ? 'disabled' : ''}>Buka tawaran & mulai fase aksi →</button>` : '';
@@ -613,7 +640,7 @@ function renderBidding() {
         await submitBid(db, roomCode, user.uid, game.round, amount);
         ownBid = { round: game.round, bid: amount };
         renderGame();
-        toast('Tawaran terkunci secara rahasia.');
+        toast('Tawaran terkunci secara rahasia.', 'success');
       } catch (error) { toast(error.message, true); }
     });
   });
@@ -771,6 +798,9 @@ function setMode(mode) {
   elements.joinTab.classList.toggle('active', !create);
   elements.createTab.setAttribute('aria-selected', String(create));
   elements.joinTab.setAttribute('aria-selected', String(!create));
+  elements.createTab.tabIndex = create ? 0 : -1;
+  elements.joinTab.tabIndex = create ? -1 : 0;
+  elements.roomForm.setAttribute('aria-labelledby', create ? 'tab-create' : 'tab-join');
   elements.codeWrap.classList.toggle('field-hidden', create);
   elements.code.required = !create;
   updateSubmitLabel();
@@ -812,14 +842,29 @@ if (window.matchMedia('(pointer: coarse)').matches) {
 }
 
 elements.createTab.addEventListener('click', () => setMode('create'));
+$('.tabs').addEventListener('keydown', (event) => {
+  const keys = { ArrowLeft: 'create', ArrowRight: 'join', Home: 'create', End: 'join' };
+  const mode = keys[event.key];
+  if (!mode) return;
+  event.preventDefault();
+  setMode(mode);
+  (mode === 'create' ? elements.createTab : elements.joinTab).focus();
+});
 elements.joinTab.addEventListener('click', () => setMode('join'));
 elements.roomForm.addEventListener('submit', handleRoomForm);
+elements.portfolioDashboard.addEventListener('toggle', (event) => { dashboardOpen = event.target.open; }, true);
 elements.startGame.addEventListener('click', (event) => withBusy(event.currentTarget, startGame));
 elements.leaveRoom.addEventListener('click', exitRoom);
 elements.copyLink.addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(elements.shareUrl.textContent); toast('Tautan room disalin.'); }
-  catch { toast('Salin tautan dari kolom alamat browser.', true); }
+  try {
+    await navigator.clipboard.writeText(elements.shareUrl.textContent);
+    toast('Tautan room disalin.', 'success');
+    elements.copyLink.textContent = 'Tersalin ✓';
+    window.clearTimeout(copyTimer);
+    copyTimer = window.setTimeout(() => { elements.copyLink.textContent = 'Salin tautan'; }, 2000);
+  } catch { toast('Salin tautan dari kolom alamat browser.', 'warning'); }
 });
+$('#btn-retry').addEventListener('click', () => window.location.reload());
 elements.returnHome.addEventListener('click', async () => {
   if (roomCode && user) {
     try { await removePresence(db, roomCode, user.uid); } catch { /* The room may already have been removed. */ }

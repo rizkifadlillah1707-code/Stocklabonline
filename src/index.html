@@ -41,10 +41,10 @@
             </div>
             <div class="join-card">
               <div class="tabs" role="tablist" aria-label="Pilih cara masuk">
-                <button class="tab active" id="tab-create" role="tab" aria-selected="true">Buat room</button>
-                <button class="tab" id="tab-join" role="tab" aria-selected="false">Gabung room</button>
+                <button class="tab active" id="tab-create" role="tab" aria-selected="true" aria-controls="room-form">Buat room</button>
+                <button class="tab" id="tab-join" role="tab" aria-selected="false" aria-controls="room-form" tabindex="-1">Gabung room</button>
               </div>
-              <form id="room-form">
+              <form id="room-form" role="tabpanel" aria-labelledby="tab-create">
                 <label for="player-name">Nama pemain</label>
                 <input id="player-name" name="playerName" maxlength="20" placeholder="Contoh: Rizki" autocomplete="nickname" enterkeyhint="next" required />
                 <div id="join-code-wrap" class="field-hidden">
@@ -106,7 +106,7 @@
         </section>
 
         <section id="error-screen" class="screen error-screen" hidden>
-          <div class="error-card"><div class="error-symbol">!</div><p class="eyebrow">TERJADI KENDALA</p><h1 id="fatal-title">Tidak dapat terhubung</h1><p id="fatal-message" class="hero-description"></p><button id="btn-return-home" class="button button-primary" type="button">Kembali ke awal</button></div>
+          <div class="error-card"><div class="error-symbol">!</div><p class="eyebrow">TERJADI KENDALA</p><h1 id="fatal-title">Tidak dapat terhubung</h1><p id="fatal-message" class="hero-description"></p><div class="error-actions"><button id="btn-retry" class="button button-primary" type="button">Coba lagi</button><button id="btn-return-home" class="button button-secondary" type="button">Kembali ke awal</button></div></div>
         </section>
       </main>
       <footer class="site-footer"><span>STOCKLAB ONLINE · BETA</span><span>Simulasi edukasi, bukan rekomendasi investasi.</span></footer>
