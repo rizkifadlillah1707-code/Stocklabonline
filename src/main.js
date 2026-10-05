@@ -245,6 +245,9 @@ function toast(message, kind = 'info') {
   window.setTimeout(() => item.remove(), type === 'error' ? 8000 : 4000);
 }
 
+// Aksi pemain baru diterapkan setelah moderator memprosesnya; tombol dibuka lagi setelah jeda ini bila layar belum berubah.
+const COMMAND_LOCK_MS = 8000;
+
 // Cegah klik ganda: tombol dikunci dan berlabel "Memproses…" selama aksi berjalan.
 // `delayRestore`: aksi pemain baru diterapkan moderator setelah terkirim, jadi tombol dibuka lagi setelah jeda singkat.
 async function withBusy(button, task, delayRestore = 0) {
@@ -644,7 +647,7 @@ function renderBidding() {
       } catch (error) { toast(error.message, true); }
     });
   });
-  $('#btn-loan')?.addEventListener('click', (event) => withBusy(event.currentTarget, () => submitPlayerCommand('loan'), 2500));
+  $('#btn-loan')?.addEventListener('click', (event) => withBusy(event.currentTarget, () => submitPlayerCommand('loan'), COMMAND_LOCK_MS));
   $('#btn-reveal-bids')?.addEventListener('click', (event) => withBusy(event.currentTarget, revealBids));
 }
 
@@ -675,7 +678,7 @@ function renderAction() {
   const choice = selected && isMyTurn ? `<div class="choice-panel"><h3>${escapeHtml(ACTION_LABELS[selected.effect])} · ${escapeHtml(SECTOR_NAMES[selected.theme])}</h3><div class="phase-controls"><button class="button button-secondary" id="btn-save-card">Simpan jadi saham</button><button class="button button-primary" id="btn-activate-card">Aktifkan efek</button></div><div id="effect-form" hidden></div></div>` : '';
   if (!setHtml(elements.phasePanel, `<h2>Fase Aksi · Ronde ${game.round}</h2><p class="phase-copy">${message} Tersisa ${game.pool.length} kartu. Simpan kartu sebagai saham atau aktifkan efeknya.</p><div class="card-options">${cards}</div>${choice}`)) return;
   elements.phasePanel.querySelectorAll('[data-card-id]').forEach((button) => button.addEventListener('click', () => { selectedCardId = button.dataset.cardId; renderGame(); }));
-  $('#btn-save-card')?.addEventListener('click', (event) => withBusy(event.currentTarget, () => submitPlayerCommand('action', { cardId: selectedCardId, mode: 'save' }), 2500));
+  $('#btn-save-card')?.addEventListener('click', (event) => withBusy(event.currentTarget, () => submitPlayerCommand('action', { cardId: selectedCardId, mode: 'save' }), COMMAND_LOCK_MS));
   $('#btn-activate-card')?.addEventListener('click', () => {
     const container = $('#effect-form');
     container.hidden = false;
@@ -690,7 +693,7 @@ function renderAction() {
       if (selected.effect === 'quickbuy') effectData.additionalIds = Array.from($('#effect-quickbuy').selectedOptions).slice(0, 2).map((option) => option.value);
       if (selected.effect === 'fee') { effectData.sector = $('#effect-sector').value; effectData.quantity = Number($('#effect-quantity').value || 0); }
       if (selected.effect === 'akuisisi') { const [targetUid, sector] = ($('#effect-target')?.value || '').split('|'); effectData.targetUid = targetUid; effectData.sector = sector; }
-      withBusy(event.currentTarget, () => submitPlayerCommand('action', { cardId: selectedCardId, mode: 'activate', effectData }), 2500);
+      withBusy(event.currentTarget, () => submitPlayerCommand('action', { cardId: selectedCardId, mode: 'activate', effectData }), COMMAND_LOCK_MS);
     });
   });
 }
@@ -706,9 +709,9 @@ function renderSale() {
   if (!setHtml(elements.phasePanel, `<h2>Fase Jual · Ronde ${game.round}</h2><p class="phase-copy">${isMyTurn ? 'Jual satu jenis saham dalam jumlah yang diinginkan, atau lewati.' : `Pemain saat ini: ${escapeHtml(player?.name || '')}.`}</p>${controls}`)) return;
   $('#sale-form')?.addEventListener('submit', (event) => {
     event.preventDefault();
-    withBusy(event.submitter, () => submitPlayerCommand('sell', { sectorId: $('#sale-sector').value, quantity: Number($('#sale-quantity').value) }), 2500);
+    withBusy(event.submitter, () => submitPlayerCommand('sell', { sectorId: $('#sale-sector').value, quantity: Number($('#sale-quantity').value) }), COMMAND_LOCK_MS);
   });
-  $('#btn-skip-sale')?.addEventListener('click', (event) => withBusy(event.currentTarget, () => submitPlayerCommand('sell', {}), 2500));
+  $('#btn-skip-sale')?.addEventListener('click', (event) => withBusy(event.currentTarget, () => submitPlayerCommand('sell', {}), COMMAND_LOCK_MS));
   $('#sale-sector')?.addEventListener('change', () => {
     const sector = $('#sale-sector').value;
     $('#sale-quantity').max = String(player.holdings[sector]);
