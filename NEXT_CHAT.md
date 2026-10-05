@@ -13,8 +13,7 @@ Dokumen ini melengkapi README: gunakan README untuk setup/deploy umum, dan file 
 
 ## Status terkini
 
-- **Production** menjalankan deployment `739675e4` (commit `8c731d1`). Commit sesudahnya hanya mengubah dokumen.
-- Titik rollback (Cloudflare Dashboard → Pages → stocklab-online → Deployments → Rollback): `5925df10` (redesain tanpa aturan hutang), lalu `a45fcd46` (versi sebelum redesain, commit `71e93e9`).
+- Titik rollback (Cloudflare Dashboard → Pages → stocklab-online → Deployments → Rollback): `5925df10` (redesain tanpa aturan hutang), lalu `a45fcd46` (versi sebelum redesain, commit `b5072d2`; label lama `71e93e9`).
 - `npm test` **37/37 lulus** (26 engine, 5 `lifecycle`, 6 `market-view`); `npm run build` berhasil.
 
 ## Yang sudah dikerjakan
