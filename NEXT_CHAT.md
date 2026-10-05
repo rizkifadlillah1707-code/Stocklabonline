@@ -5,62 +5,71 @@ Dokumen ini melengkapi README: gunakan README untuk setup/deploy umum, dan file 
 ## Project dan akses
 
 - Workspace: `/home/dac/stocklabonline`
-- Aplikasi aktif: Vite memakai `src/`; `index.html` root adalah prototipe lama.
-- GitHub remote: `https://github.com/rizkifadlillah1707-code/Stocklabonline.git`
-- Branch: `main`
+- Aplikasi aktif: Vite memakai `src/` (root Vite adalah `src/`, bukan root repo); `index.html` di root adalah prototipe lama, jangan diubah.
+- GitHub: `rizkifadlillah1707-code/Stocklabonline`. Remote `origin` memakai SSH, jadi `git push` biasa langsung bekerja. Remote `upstream` = repo `hanafin12/stocklabonline` (hanya baca).
 - Situs production: https://stocklab-online.pages.dev/
-- Cloudflare Pages project: `stocklab-online`; deployment production branch yang digunakan sebelumnya `STOCKLAB`; ada juga preview alias `main.stocklab-online.pages.dev`.
-- Firebase project: `projecttestingstocklab`; konfigurasi lokal berada di `.env` (ignored, jangan dibaca/cetak/commit atau meminta user mengirimkannya).
+- Cloudflare Pages project: `stocklab-online`; cabang production Pages: `STOCKLAB`; semua cabang lain menjadi preview (mis. `preview.stocklab-online.pages.dev`).
+- Firebase project: `projecttestingstocklab`; konfigurasi lokal di `.env` (ignored; jangan dibaca/dicetak/di-commit atau meminta user mengirimkannya). Rules dipasang lewat Firebase Console dari `firebase.database.rules.json` (tidak berubah dalam pekerjaan ini); tidak ada `firebase.json`/CLI Firebase.
 
-## Status Git terkini (redesign UI/UX)
+## Status terkini
 
-- **Preview Cloudflare** (bukan production): https://desain-ui-ux.stocklab-online.pages.dev, dideploy dengan `wrangler pages deploy dist --project-name stocklab-online --branch preview`. Production `stocklab-online.pages.dev` belum berubah. Hostname preview sudah berfungsi dengan Firebase Auth.
-- Uji otomatis 3 tab (Playwright; moderator 1024×768 + 2 pemain 390×844) pada preview: buat/gabung room, mulai, 2 ronde penuh (tawaran, aksi, jual, ekonomi), banner offline-online berhasil tanpa galat konsol selain WebSocket yang sengaja diputus. Room uji `BRFNHC` tertinggal di Firebase (status playing).
-- Uji 5 tab (moderator + 4 pemain, jendela Chromium terlihat via WSLg) hingga ronde 6 dan layar skor akhir lulus tanpa galat; kelima efek kartu (Info Bursa, Rumor, Trading Fee, Quickbuy, Akuisisi), fase jual sungguhan, dan Pailit/Split tampil benar. Preview dan production sudah memuat commit `d0d5194`. Deploy: `npm run build && npx wrangler pages deploy dist --project-name stocklab-online --branch <desain-ui-ux|STOCKLAB>` (token login wrangler bisa kedaluwarsa: `npx wrangler login`).
-- **PRODUCTION terbaru**: deployment `739675e4` (commit `8c731d1`): redesain + aturan saldo minus/paket hutang (popup), Merger melingkar, penanda harga "dari X". Uji production 5 tab (saldo 0 → Trading Fee → popup → paket 1 kartu → saldo 9) lulus. Rollback bertahap: `5925df10` (redesain tanpa aturan hutang), lalu `a45fcd46` (sebelum redesain). `main` = `8c731d1`; room uji `FBQ4LS` tertinggal di Firebase.
-- **(riwayat) production sebelumnya memakai redesain**: deployment `5925df10` (commit `d0d5194`, cabang Pages `STOCKLAB`) di https://stocklab-online.pages.dev. Rollback: deployment sebelumnya `a45fcd46` (commit `71e93e9`) lewat Cloudflare Dashboard → Pages → stocklab-online → Deployments → Rollback. Cabang `desain-ui-ux` sudah digabung ke `main` (fast-forward) dan dipush; `main` = `desain-ui-ux` di GitHub. Production diuji 5 tab penuh (6 ronde, 5 efek kartu, fase jual, skor akhir) tanpa galat; room uji `QJ9ZQ6` tertinggal di Firebase.
-- Tahap 9 (Web Awesome / `<dialog>`) sengaja dilewati. Tahap 10 (uji perangkat nyata) belum dilakukan: lihat checklist di bagian bawah.
-- Hanya tampilan dan siklus hidup UI yang berubah. `game-engine.js`, `room-service.js`, `firebase.js`, dan rules tidak disentuh. `.env` tidak dibaca.
-- `npm test` **25/25 lulus** (20 engine + 5 `lifecycle`), `npm run build` berhasil (CSS 21,9 kB, JS 398 kB).
+- **Production** menjalankan deployment `739675e4` (commit `8c731d1`). Commit sesudahnya hanya mengubah dokumen.
+- Titik rollback (Cloudflare Dashboard → Pages → stocklab-online → Deployments → Rollback): `5925df10` (redesain tanpa aturan hutang), lalu `a45fcd46` (versi sebelum redesain, commit `71e93e9`).
+- `npm test` **37/37 lulus** (26 engine, 5 `lifecycle`, 6 `market-view`); `npm run build` berhasil.
+
+## Yang sudah dikerjakan
+
+1. **Redesain UI/UX** mengikuti `DESIGN_SYSTEM.md` (tahap 1–8, 7a–7f; tahap 9 dilewati): token terang/gelap, kontras WCAG AA, ukuran teks minimal 12 px, penanda non-warna (▲/▼/–, centang, "Giliran", status koneksi), tata letak ponsel/tablet, tombol ganti tema, font self-host, manifest dan ikon, banner sambung ulang, Wake Lock, riwayat tombol Kembali, form (numerik, error inline, "Memproses…", jeda kunci 8 detik).
+2. **UX lanjutan**: toast per jenis, dashboard portofolio lipat di ponsel, konfirmasi "lewati giliran", skeleton, "Coba lagi", panah antar tab, "Tersalin ✓", keadaan kosong lobby.
+3. **Aturan permainan** (disetujui user, mengubah `game-engine.js`): saldo boleh minus (Trading Fee, Extra Fee, Pajak Jalan tidak lagi berhenti di 0) dan ditutup lewat popup paket kartu utang; Merger sektor terakhir melingkar ke sektor pertama.
+4. **Tampilan harga**: harga selalu yang terbaru; ringkasan "Harga saham sekarang" (`5 → 9 · ▲ +4`); label ✦ Split / ✖ Pailit; penanda menyebut harga sebelumnya (`▼ −1 dari 6`). Logika murni di `src/market-view.js`.
 
 ## Arsitektur
 
-- `src/index.html` — markup aplikasi.
-- `src/tokens.css` — design token (terang + gelap); `src/styles.css` — aturan komponen. Keduanya dimuat lewat `<link>` di index.html.
-- `src/lifecycle.js` — logika murni siklus hidup UI (Wake Lock, banner, Kembali, beforeunload), diuji di `tests/lifecycle.test.js`.
-- `src/public/` — manifest, ikon, dan font self-host (root Vite adalah `src/`, bukan root repo).
-- `src/main.js` — UI, room subscriptions, moderator dan peserta.
+- `src/index.html` — markup aplikasi (termasuk `<dialog id="debt-dialog">`).
+- `src/tokens.css` — design token terang + gelap; `src/styles.css` — aturan komponen (keduanya dimuat lewat `<link>`).
+- `src/main.js` — UI, langganan realtime, moderator dan peserta.
 - `src/game-engine.js` — aturan/efek kartu dan transisi fase.
-- `src/room-service.js` — Firebase Realtime Database access.
-- `src/firebase.js` — inisialisasi Firebase dari `VITE_FIREBASE_*`.
-- `firebase.database.rules.json` — rules yang dipasang melalui Firebase Console.
-- `tests/game-engine.test.js` — tes deterministik engine (20 tes) dan `tests/lifecycle.test.js` (5 tes).
-- `README.md` — instruksi setup lokal, Firebase, dan Cloudflare Pages.
+- `src/market-view.js` — logika murni tampilan harga (pelacak harga, Split/Pailit, teks penanda).
+- `src/lifecycle.js` — logika murni siklus hidup UI (Wake Lock, banner, Kembali, beforeunload).
+- `src/room-service.js`, `src/firebase.js` — akses Firebase Realtime Database dan inisialisasi (tidak diubah).
+- `src/public/` — manifest, ikon, dan font self-host beserta lisensi SIL OFL.
+- `tests/game-engine.test.js`, `tests/lifecycle.test.js`, `tests/market-view.test.js`.
+- `DESIGN_SYSTEM.md` — acuan desain; bagian 12 berisi hasil penerapan, status temuan A1–A13, dan checklist uji perangkat.
 
-## Perilaku / batasan penting
+## Aturan permainan penting (sesuai kode saat ini)
 
-- Room 3–5 pemain; beberapa room dapat berjalan bersamaan.
-- Firebase Spark Realtime Database membatasi 100 koneksi simultan seluruh project.
-- Moderator browser adalah otoritas state dan harus tetap aktif selama permainan. Ini MVP untuk demo/kelas dengan moderator tepercaya, bukan backend anti-cheat.
-- Engine tidak memiliki eliminasi pemain. Biaya (Trading Fee, Extra Fee, Pajak Jalan) boleh membuat saldo minus; pemain lalu memilih paket kartu utang lewat popup (10 koin per kartu, dilunasi 13 di skor akhir, maksimal 5 kartu per permainan). Pemain bersaldo minus hanya bisa menawar 0. Saldo yang tetap minus (kartu utang habis) mengurangi skor akhir. Pajak Jalan = urutan bidding ronde itu (1 sampai N koin). Merger sektor terakhir mengikuti sektor pertama (melingkar). Crash/Split mengikuti aturan: turun melewati dasar tangga = semua saham pemain ditarik; naik melewati puncak = saham yang sudah dimiliki ×2; harga kembali ke 5.
-- Harga saham memakai tangga harga positif; tidak ada path untuk harga 0. Crash menghapus holdings dan reset ke 5 saat melampaui dasar; Split menggandakan holdings dan reset ke 5 saat melewati puncak.
-- Informasi kartu ekonomi privat dari Info Bursa dikirim ke pemain pemilih.
-- Economy rules tertentu mungkin perlu diverifikasi dengan rulebook cetak, terutama definisi Merger/World Oil/Tax Amnesty dan kapan crash/split terjadi.
+- Room 3–5 pemain; setiap pemain mulai dengan 15 koin; 6 ronde (setiap sektor punya 6 kartu ekonomi).
+- Moderator browser adalah otoritas state dan harus tetap aktif selama permainan. MVP untuk demo/kelas dengan moderator tepercaya, bukan backend anti-cheat. Firebase Spark membatasi 100 koneksi simultan.
+- Tawaran rahasia menentukan urutan main (seri: urutan ronde sebelumnya). Tawaran dibayar ke Bank.
+- Tangga harga (sudah dikonfirmasi benar): Tambang 2,3,5,6,8,9; Konsumer 1–8; Keuangan 1,3,4,5,6,7,9; Agrikultur 1,2,4,5,6,8,9. Harga awal 5.
+- Crash (Pailit): turun melewati dasar tangga → semua saham pemain di sektor itu ditarik, harga kembali 5. Split: naik melewati puncak → saham yang **sudah dimiliki** ×2, harga kembali 5.
+- Biaya (Trading Fee = 1 + jumlah saham sektor kartu; Extra Fee = 1 per lembar; Pajak Jalan = urutan bidding ronde itu, 1 sampai N koin) boleh membuat saldo minus. Hasil penjualan dalam aksi Trading Fee dihitung dulu sebelum menilai saldo.
+- Saldo minus → popup paket kartu utang (10 koin per kartu, dilunasi 13 di skor akhir; maksimal 5 kartu per permainan; paket 1–3 kartu mulai dari yang cukup menutup kekurangan). Pemain bersaldo minus hanya bisa menawar 0. Bila kartu utang habis, saldo tetap minus dan mengurangi skor akhir. Pinjaman sukarela 1 kartu tetap ada di fase bidding.
+- Skor akhir = koin + nilai saham − (13 × kartu utang).
+- Reksa Dana: harga = rata-rata (dibulatkan ke bawah) dua sektor tetangga yang ditetapkan di awal; tidak ikut ditarik saat sektor asal Pailit.
+- Akuisisi: ambil 1 saham target bila jumlah saham sektor itu ≥ milik target; target mendapat `floor(harga/2)` koin. Info Bursa: +2 koin dan mengintip kartu ekonomi teratas dua sektor (privat).
+- Item yang belum dicocokkan dengan buku aturan cetak: definisi Merger/World Oil/Tax Amnesty, Dividen flat 1 koin per lembar, Info Bursa +2, kompensasi Akuisisi, dan Pailit tanpa kompensasi.
 
-## Verifikasi sebelumnya
+## Deploy
 
-Jalankan dari root project:
+- Build: `npm run build` (hasil di `dist/`). Preview lokal: `npx vite preview --outDir /home/dac/stocklabonline/dist` (path absolut).
+- Preview Cloudflare: `npx wrangler pages deploy dist --project-name stocklab-online --branch preview`
+- **Production**: `npx wrangler pages deploy dist --project-name stocklab-online --branch STOCKLAB --commit-hash <hash> --commit-message "<pesan>"`
+- Token login wrangler bisa kedaluwarsa (`npx wrangler login`); wrangler tidak dipasang di proyek (dijalankan lewat `npx`).
+- Variabel `VITE_FIREBASE_*` dibaca dari `.env` lokal saat build; domain baru harus ada di Firebase Authentication → Authorized domains.
 
-- `npm test` — terakhir 25/25 pass.
-- `npm run build` — terakhir berhasil.
+## Pengujian
 
-Tes mencakup 5 action cards, 18 economy-card types, split/crash keempat sector tracks, Resesi, Stimulus, Restructuring, Tax Amnesty, World Oil + Merger, pinjaman, pungutan, serta satu simulasi enam ronde.
+- `npm test` untuk logika (engine, lifecycle, market-view).
+- Uji alur 3–5 tab dilakukan dengan Playwright dari folder scratchpad (di luar repo, tanpa menambah dependensi proyek); skrip tidak disimpan di repo. Lulus untuk: buat/gabung room, 6 ronde penuh, kelima efek kartu (Info Bursa, Rumor, Trading Fee, Quickbuy, Akuisisi), fase jual sungguhan, Pailit/Split, banner offline/online, popup paket hutang, dan layar skor akhir, di preview dan production.
+- Room uji yang tertinggal di Firebase (status playing, boleh dihapus lewat Console): `BRFNHC`, `KAT7GT`, `ZQGVNP`, `N3JZYQ`, `QJ9ZQ6`, `PZ4DHU`, `FBQ4LS`.
 
-## Saran langkah berikutnya
+## Belum diverifikasi / saran langkah berikutnya
 
-1. Uji `desain-ui-ux` di perangkat nyata (checklist di DESIGN_SYSTEM.md bagian 12.3). Hal yang **belum diverifikasi di perangkat**: keyboard virtual, safe area/`dvh`, Wake Lock, Split View iPad, sambung ulang setelah layar terkunci, tombol Kembali, dan uji 3 perangkat serentak.
-2. Layar lobby/game asli belum pernah diperiksa lewat tangkapan layar (tanpa `.env`); hanya halaman tiruan.
-3. Putuskan A1 (merek koral vs warna harga turun) setelah melihat ▲/▼ di perangkat.
-4. Jika lolos: gabungkan ke `main`, baru push dan deploy (Cloudflare Pages `stocklab-online`). Jangan deploy sebelum uji perangkat.
+1. **Uji di perangkat nyata** (belum diverifikasi di perangkat): keyboard virtual, safe area/`dvh`, Wake Lock, iPad Split View, tombol Kembali di lobby/game, sambung ulang setelah layar terkunci 30 detik, dan 3 perangkat serentak. Checklist ada di `DESIGN_SYSTEM.md` bagian 12.3.
+2. Popup paket hutang akibat **Extra Fee / Pajak Jalan** dan kasus **kartu utang habis** baru diuji di tingkat tes engine, belum di permainan nyata.
+3. Putuskan **A1** (merek koral vs warna harga turun) setelah melihat ▲/▼ di perangkat; evaluasi apakah merek perlu dipindah ke warna netral (hanya token `--brand*`).
+4. Cocokkan sisa aturan di atas dengan buku aturan cetak bila tersedia.
 
 Jangan tulis API key, credential, token, isi `.env`, atau secret ke file handoff ini.
