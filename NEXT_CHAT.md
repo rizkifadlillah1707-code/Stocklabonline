@@ -13,7 +13,7 @@ Dokumen ini melengkapi `README.md` (panduan pengguna/pemain) dan `DEVELOPER.md` 
 
 ## Status terkini
 
-- Titik rollback (Cloudflare Dashboard → Pages → stocklab-online → Deployments → Rollback): `5925df10` (redesain tanpa aturan hutang), lalu `a45fcd46` (versi sebelum redesain, commit `b5072d2`; label lama `71e93e9`).
+- Titik rollback (Cloudflare Dashboard → Pages → stocklab-online → Deployments → Rollback): `5925df10` (redesain tanpa aturan hutang), lalu `a45fcd46` (versi sebelum redesain).
 - `npm test` **37/37 lulus** (26 engine, 5 `lifecycle`, 6 `market-view`); `npm run build` berhasil.
 
 ## Yang sudah dikerjakan
