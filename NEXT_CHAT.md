@@ -13,7 +13,10 @@ Dokumen ini melengkapi `README.md` (panduan pengguna/pemain) dan `DEVELOPER.md` 
 
 ## Status terkini
 
+- Cabang `main` = `origin/main`, working tree bersih, tidak ada cabang kerja yang masih terbuka.
+- **Production** menjalankan deployment `739675e4` (versi dengan aturan saldo minus dan penanda harga "dari X"). Commit sesudahnya hanya mengubah dokumen.
 - Titik rollback (Cloudflare Dashboard → Pages → stocklab-online → Deployments → Rollback): `5925df10` (redesain tanpa aturan hutang), lalu `a45fcd46` (versi sebelum redesain).
+- Pesan commit ditulis dalam bahasa Indonesia dengan awalan jenis perubahan (Fitur/Perbaikan/UX/Aturan/Redesain/Dokumen) dan menjelaskan isi perubahan kode.
 - `npm test` **37/37 lulus** (26 engine, 5 `lifecycle`, 6 `market-view`); `npm run build` berhasil.
 
 ## Yang sudah dikerjakan
@@ -71,5 +74,6 @@ Dokumen ini melengkapi `README.md` (panduan pengguna/pemain) dan `DEVELOPER.md` 
 2. Popup paket hutang akibat **Extra Fee / Pajak Jalan** dan kasus **kartu utang habis** baru diuji di tingkat tes engine, belum di permainan nyata.
 3. Putuskan **A1** (merek koral vs warna harga turun) setelah melihat ▲/▼ di perangkat; evaluasi apakah merek perlu dipindah ke warna netral (hanya token `--brand*`).
 4. Cocokkan sisa aturan di atas dengan buku aturan cetak bila tersedia.
+5. Hapus room uji Firebase bila tidak diperlukan.
 
 Jangan tulis API key, credential, token, isi `.env`, atau secret ke file handoff ini.
